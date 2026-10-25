@@ -1,0 +1,910 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Cellule de crise CentreCall</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: poste de supervision. Bandeau de progression collant, une colonne de missions, cartes de question à validation unique. */
+:root{
+  --bg:#f4f6fa; --panel:#ffffff; --panel2:#eef2f8; --ink:#14202e; --muted:#566478; --line:#d5dde9;
+  --accent:#0b7285; --accent-ink:#ffffff; --accent-soft:#dff3f6;
+  --ok:#17794e; --ok-soft:#e1f4ea; --warn:#9a5b00; --warn-soft:#fff1d6; --crit:#b3261e; --crit-soft:#fde8e6;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace; --sans:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0b1220; --panel:#111b2c; --panel2:#16233a; --ink:#e6edf7; --muted:#93a4bb; --line:#223552;
+    --accent:#22d3ee; --accent-ink:#04222a; --accent-soft:#0e3541;
+    --ok:#4ade80; --ok-soft:#10301f; --warn:#fbbf24; --warn-soft:#3a2c08; --crit:#f87171; --crit-soft:#3d1717;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0b1220; --panel:#111b2c; --panel2:#16233a; --ink:#e6edf7; --muted:#93a4bb; --line:#223552;
+  --accent:#22d3ee; --accent-ink:#04222a; --accent-soft:#0e3541;
+  --ok:#4ade80; --ok-soft:#10301f; --warn:#fbbf24; --warn-soft:#3a2c08; --crit:#f87171; --crit-soft:#3d1717;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.55;margin:0;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 56px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--panel)}
+.wrap{max-width:900px;margin:0 auto}
+h1,h2,h3{line-height:1.2;margin:0;text-wrap:balance}
+h1{font-size:clamp(24px,4.5vw,32px);font-weight:700;letter-spacing:-.01em}
+h2{font-size:20px;font-weight:600}
+h3{font-size:15px;font-weight:600}
+p{margin:0}
+code,.mono{font-family:var(--mono);font-size:.9em}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+/* bandeau */
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--panel);border-bottom:1px solid var(--line);
+  margin-inline:calc(-1 * max(16px,env(safe-area-inset-left,0px)));padding:10px max(16px,env(safe-area-inset-left,0px))}
+.bar-in{max-width:900px;margin:0 auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.bar-title{font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.06em;color:var(--accent);white-space:nowrap}
+.steps{display:flex;gap:6px;flex:1;min-width:0;flex-wrap:wrap}
+.step{font-family:var(--mono);font-size:12px;padding:4px 9px;border:1px solid var(--line);border-radius:6px;color:var(--muted);text-decoration:none;background:var(--panel2)}
+.step b{color:var(--ink);font-weight:600}
+.step.done{border-color:var(--ok);color:var(--ok)}
+.step.done b{color:var(--ok)}
+.total{font-family:var(--mono);font-size:15px;font-weight:600;white-space:nowrap}
+.total small{color:var(--muted);font-weight:400}
+.step:focus-visible,.btn:focus-visible,input:focus-visible,textarea:focus-visible,.opt:focus-within,.flag:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* intro */
+.hero{padding:36px 0 22px;display:grid;gap:12px}
+.hero p{max-width:66ch;color:var(--muted)}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-top:6px}
+.fact{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.fact span{display:block;font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.fact strong{font-size:15px;font-weight:600}
+/* missions */
+.mission{margin-top:34px;scroll-margin-top:90px}
+.mhead{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;margin-bottom:6px}
+.mtag{font-family:var(--mono);font-size:12px;font-weight:600;background:var(--accent);color:var(--accent-ink);padding:2px 8px;border-radius:5px}
+.mmeta{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.brief{color:var(--muted);max-width:68ch;margin-bottom:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;margin-top:12px;min-width:0}
+.card.plain{background:var(--panel2)}
+.files{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+pre{margin:0;font-family:var(--mono);font-size:11.5px;line-height:1.5;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px;overflow-x:auto;white-space:pre}
+.fhead{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.fname{font-family:var(--mono);font-size:13px;font-weight:600}
+.btn{font-family:var(--sans);font-size:13px;font-weight:600;border-radius:7px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);padding:7px 12px;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--accent)}
+.btn:disabled{opacity:.5;cursor:default}
+.hash{font-family:var(--mono);font-size:11.5px;word-break:break-all;margin-top:8px;padding:8px;border-radius:6px;background:var(--panel2);border:1px dashed var(--line);min-height:36px}
+.hash.match{border-style:solid;border-color:var(--ok);background:var(--ok-soft)}
+.hash.diff{border-style:solid;border-color:var(--crit);background:var(--crit-soft)}
+.ref{font-size:13px}
+.ref code{word-break:break-all}
+.logs{font-family:var(--mono);font-size:11.5px;line-height:1.7}
+.logs .l{display:grid;grid-template-columns:auto 1fr;gap:10px}
+.logs .t{color:var(--muted)}
+.tbl-wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{text-align:left;padding:6px 9px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:500}
+td.iban{font-family:var(--mono);font-size:12px;white-space:nowrap}
+tr.pick{background:var(--warn-soft)}
+tr.truth-bad td{background:var(--crit-soft)}
+/* questions */
+.q{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;margin-top:12px}
+.q.ok{border-color:var(--ok)} .q.ko{border-color:var(--crit)} .q.part{border-color:var(--warn)}
+.qh{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.qn{font-family:var(--mono);font-size:12px;color:var(--accent);font-weight:600}
+.qt{font-weight:600;margin-top:2px;max-width:62ch}
+.pts{font-family:var(--mono);font-size:12px;color:var(--muted);white-space:nowrap}
+.opts{display:grid;gap:7px;margin-top:12px}
+.opt{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:8px;padding:9px 11px;cursor:pointer;background:var(--panel2)}
+.opt input{margin-top:3px;accent-color:var(--accent);flex:none}
+.opt span{min-width:0}
+.opt.right{border-color:var(--ok);background:var(--ok-soft)}
+.opt.wrong{border-color:var(--crit);background:var(--crit-soft)}
+.opt.missed{border-style:dashed;border-color:var(--ok)}
+.qa{display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap}
+.fb{margin-top:10px;font-size:14px;padding:10px 12px;border-radius:8px;background:var(--panel2);border-left:3px solid var(--accent)}
+.fb.ok{border-left-color:var(--ok)} .fb.ko{border-left-color:var(--crit)} .fb.part{border-left-color:var(--warn)}
+.fb strong{font-weight:600}
+/* mots de passe */
+.pwgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px}
+.pw{border:1px solid var(--line);border-radius:8px;padding:12px;background:var(--panel2);min-width:0}
+.pw .tag{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.pw .val{font-family:var(--mono);font-size:15px;font-weight:600;margin:3px 0 8px;word-break:break-all}
+.pw dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:12.5px}
+.pw dt{color:var(--muted)} .pw dd{margin:0;font-family:var(--mono)}
+.pw .meter{height:6px;border-radius:3px;background:var(--line);margin-top:9px;overflow:hidden}
+.pw .meter i{display:block;height:100%;background:var(--crit)}
+.free{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.free input{flex:1;min-width:200px;font-family:var(--mono);font-size:14px;padding:8px 10px;border:1px solid var(--line);border-radius:7px;background:var(--panel);color:var(--ink)}
+.live{margin-top:10px;font-size:13px;color:var(--muted)}
+.live b{color:var(--ink);font-family:var(--mono)}
+/* e-mail */
+.mail{border:1px solid var(--line);border-radius:10px;background:var(--panel);overflow:hidden}
+.mail-h{background:var(--panel2);padding:12px 14px;display:grid;gap:4px;font-size:13.5px;border-bottom:1px solid var(--line)}
+.mail-h div{display:flex;gap:8px;flex-wrap:wrap}
+.mail-h .k{color:var(--muted);width:56px;flex:none;font-family:var(--mono);font-size:12px}
+.mail-b{padding:14px;display:grid;gap:12px;font-size:14.5px}
+.flag{cursor:pointer;border-radius:4px;border-bottom:2px dotted var(--muted);padding:0 2px;background:transparent;font:inherit;color:inherit;text-align:left;border-top:0;border-left:0;border-right:0}
+.flag.on{background:var(--warn-soft);border-bottom:2px solid var(--warn)}
+.flag.good{background:var(--ok-soft);border-bottom:2px solid var(--ok)}
+.flag.bad{background:var(--crit-soft);border-bottom:2px solid var(--crit)}
+.flag.miss{background:transparent;border-bottom:2px dashed var(--ok)}
+.linkbox{font-family:var(--mono);font-size:12.5px;margin-top:6px;padding:6px 9px;border-radius:6px;background:var(--panel2);border:1px solid var(--line)}
+.att{display:inline-flex;gap:8px;align-items:center;border:1px solid var(--line);border-radius:7px;padding:6px 10px;background:var(--panel2);font-size:13.5px}
+.hint{font-size:13px;color:var(--muted)}
+/* chaîne */
+.chain{display:grid;gap:12px}
+.cs{border:1px solid var(--line);border-radius:10px;background:var(--panel);padding:14px}
+.cs.ok{border-color:var(--ok)} .cs.ko{border-color:var(--crit)}
+.cs-h{display:flex;gap:10px;align-items:center;margin-bottom:8px}
+.cs-n{font-family:var(--mono);font-weight:600;font-size:12px;background:var(--accent);color:var(--accent-ink);width:24px;height:24px;border-radius:50%;display:grid;place-items:center;flex:none}
+.cs-t{font-weight:600}
+.cs-d{font-size:13.5px;color:var(--muted);margin-bottom:8px}
+.badge{font-family:var(--mono);font-size:11px;font-weight:600;padding:1px 7px;border-radius:5px;margin-left:6px}
+.badge.P{background:var(--ok-soft);color:var(--ok)} .badge.D{background:var(--warn-soft);color:var(--warn)} .badge.R{background:var(--crit-soft);color:var(--crit)}
+/* bilan */
+.score-big{font-family:var(--mono);font-size:44px;font-weight:600;line-height:1}
+.score-big small{font-size:18px;color:var(--muted);font-weight:400}
+.split{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin:14px 0}
+.split div{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--panel2)}
+.split span{display:block;font-family:var(--mono);font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.split strong{font-family:var(--mono);font-size:17px}
+label.f{display:grid;gap:4px;font-size:13px;color:var(--muted);margin-top:10px}
+label.f input,label.f textarea{font-family:var(--sans);font-size:14px;padding:8px 10px;border:1px solid var(--line);border-radius:7px;background:var(--panel);color:var(--ink);width:100%}
+textarea{resize:vertical;min-height:84px}
+.report{font-family:var(--mono);font-size:12px;min-height:200px;line-height:1.55}
+.foot{margin-top:40px;font-size:12.5px;color:var(--muted);max-width:70ch}
+@media (max-width:560px){.pts{display:none}.bar-title{display:none}}
+@media (prefers-reduced-motion:no-preference){.opt,.btn{transition:background .15s,border-color .15s}}
+
+.sel{font-family:var(--sans);font-size:14px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:6px 8px;max-width:100%}
+.item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px 14px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.item:first-of-type{border-top:0}
+.item .why{grid-column:1/-1;font-size:13.5px;color:var(--muted)}
+.item.ok .why{color:var(--ok)} .item.ko .why{color:var(--crit)}
+.item.ok .sel{border-color:var(--ok)} .item.ko .sel{border-color:var(--crit)}
+.pair{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.pair label{font-size:12px;color:var(--muted);font-family:var(--mono)}
+.meas{display:grid;gap:8px;margin-top:10px}
+.meas .opt b{font-weight:600}
+.meas .cost{margin-left:auto;font-family:var(--mono);font-size:12.5px;white-space:nowrap;color:var(--muted);padding-left:8px}
+.budget{position:sticky;top:64px;z-index:5;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin-top:10px;font-family:var(--mono);font-size:13px}
+.budget.over{border-color:var(--crit);color:var(--crit)}
+.tl{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--accent);margin-bottom:4px}
+.scale{font-size:13px;color:var(--muted)}
+@media (max-width:640px){.item{grid-template-columns:1fr}.item .sel{width:100%}.budget{position:static}.steps{display:none}.bar-in{justify-content:space-between}}
+
+.term{background:#0a0f18;color:#cfe3ff;border:1px solid #223552;border-radius:10px;font-family:var(--mono);font-size:13px;line-height:1.45;overflow:hidden}
+.term-top{display:flex;gap:6px;align-items:center;padding:8px 12px;background:#111b2c;color:#93a4bb;font-size:12px}
+.term-top i{width:10px;height:10px;border-radius:50%;display:inline-block;background:#f87171} .term-top i:nth-child(2){background:#fbbf24} .term-top i:nth-child(3){background:#4ade80}
+.tout{height:300px;overflow:auto;padding:10px 12px;white-space:pre-wrap;word-break:break-word}
+.tout .cmd{color:#7dd3fc} .tout .err{color:#fca5a5}
+.tin{display:flex;gap:8px;padding:8px 12px;border-top:1px solid #223552;align-items:center}
+.tp{color:#4ade80;white-space:nowrap}
+.tin input{flex:1;min-width:0;background:transparent;border:0;color:#fff;font:inherit;outline:none}
+.tasks{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:6px}
+.tasks li{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:8px;padding:8px 11px;background:var(--panel2);font-size:14px}
+.tasks li .ck{font-family:var(--mono);font-weight:600;color:var(--muted);flex:none}
+.tasks li.done{border-color:var(--ok);background:var(--ok-soft)} .tasks li.done .ck{color:var(--ok)}
+.tasks code{background:var(--panel);padding:0 5px;border-radius:4px}
+.row2{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.row2 input{font-family:var(--mono);font-size:14px;padding:7px 9px;border:1px solid var(--line);border-radius:7px;background:var(--panel);color:var(--ink);min-width:0;flex:1 1 160px}
+@media (max-width:640px){.tout{height:260px;font-size:12px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="bar"><div class="bar-in">
+    <span class="bar-title">CENTRECALL // CRISE · 4 H</span>
+    <nav class="steps" aria-label="Missions">
+      <a class="step" id="s0" href="#m0"><b>M0</b> Terminal</a>
+      <a class="step" id="s1" href="#m1"><b>M1</b> Intégrité</a>
+      <a class="step" id="s2" href="#m2"><b>M2</b> Mots de passe</a>
+      <a class="step" id="s3" href="#m3"><b>M3</b> Hameçonnage</a>
+      <a class="step" id="s4" href="#m4"><b>M4</b> Chaîne d'attaque</a>
+      <a class="step" id="s5" href="#m5"><b>M5</b> Profils</a>
+      <a class="step" id="s6" href="#m6"><b>M6</b> Risques</a>
+      <a class="step" id="s7" href="#m7"><b>M7</b> Budget</a>
+      <a class="step" id="s8" href="#m8"><b>M8</b> Crise</a>
+      <a class="step" id="s9" href="#bilan"><b>Bilan</b></a>
+    </nav>
+    <div class="total"><span id="total">0</span><small> / 45</small></div>
+  </div></div>
+
+  <section class="hero">
+    <span class="eyebrow">BTS SIO 1 · U.7 Cybersécurité · séance 3 · TP de 4 heures</span>
+    <h1>Cellule de crise CentreCall</h1>
+    <p>Vous êtes l'équipe sécurité de CentreCall, le centre d'appels du dossier de cours. Neuf missions, du terminal à la gestion de crise, sur les incidents du journal. Chaque mission se traite dans le navigateur, sans rien installer.</p>
+    <div class="facts">
+      <div class="fact"><span>Durée</span><strong>4 h · 9 missions</strong></div>
+      <div class="fact"><span>Équipe</span><strong>Binôme</strong></div>
+      <div class="fact"><span>Barème</span><strong>5 points par mission, 45 au total</strong></div>
+      <div class="fact"><span>Données</span><strong>Fictives · rien n'est envoyé</strong></div>
+    </div>
+  </section>
+
+  <!-- M0 -->
+  <section class="mission" id="m0">
+    <div class="mhead"><span class="mtag">M0</span><h2>Prise en main : le terminal du poste de supervision</h2><span class="mmeta">tous incidents · 15 min</span></div>
+    <p class="brief">Vous êtes connecté au poste de supervision. Le terminal ci-dessous est un simulateur en lecture seule : rien ne sort de votre navigateur. Réalisez les cinq défis, ils se valident tout seuls. Tapez <code>help</code> pour la liste des commandes. Les fichiers de preuve (exports, journaux) servent ensuite aux missions M1 et suivantes.</p>
+    <div class="term" id="term" aria-label="Terminal simulé"><div class="term-top"><i></i><i></i><i></i><span style="margin-left:8px">analyste@poste-secu : ~</span></div><div class="tout" id="tout" role="log" aria-live="polite"></div><div class="tin"><span class="tp" id="tp">analyste@poste-secu:~$</span><input id="tcmd" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Commande"></div></div>
+    <ul class="tasks" id="tasks">
+      <li id="t1"><span class="ck">[ ]</span><span>Listez les fichiers du dossier : <code>ls</code></span></li>
+      <li id="t2"><span class="ck">[ ]</span><span>Calculez l'empreinte SHA-256 de <code>export_vendredi.csv</code> : <code>sha256sum</code></span></li>
+      <li id="t3"><span class="ck">[ ]</span><span>Comparez les deux exports ligne à ligne : <code>diff</code></span></li>
+      <li id="t4"><span class="ck">[ ]</span><span>Retrouvez dans <code>journal.log</code> les actions du compte <code>superviseur-ecoute</code> : <code>grep</code></span></li>
+      <li id="t5"><span class="ck">[ ]</span><span>Dans <code>auth.log</code>, quelle adresse IP a le plus d'échecs de connexion SSH (« Failed password ») et combien ? Pistes : <code>grep</code>, <code>awk</code>, <code>sort</code>, <code>uniq -c</code>, <code>wc -l</code>, avec des tubes <code>|</code>.</span></li>
+    </ul>
+    <div class="card plain"><strong>Réponse au défi 5</strong>
+      <div class="row2"><input id="t5ip" placeholder="Adresse IP" aria-label="Adresse IP"><input id="t5n" placeholder="Nombre d'échecs" inputmode="numeric" aria-label="Nombre d'échecs"><button class="btn" id="t5go" type="button">Vérifier</button></div>
+      <div class="fb" id="t5fb" hidden></div>
+    </div>
+    <div class="qa" style="margin-top:12px"><button class="btn" id="m0go" type="button">Terminer la mission</button><span class="hint" id="m0msg"></span></div>
+  </section>
+
+  <!-- M1 -->
+  <section class="mission" id="m1">
+    <div class="mhead"><span class="mtag">M1</span><h2>Le fichier des IBAN a-t-il été modifié ?</h2><span class="mmeta">incident I4 · 20 min</span></div>
+    <p class="brief">Lundi matin, des clients signalent des virements partis vers un compte inconnu. Vendredi soir, le service sauvegarde a relevé l'empreinte SHA-256 de l'export des fiches clients. Comparez-la à celle du fichier de lundi.</p>
+
+    <div class="card plain ref"><strong>Journal d'audit (extrait)</strong>
+      <div class="logs" style="margin-top:8px">
+        <div class="l"><span class="t">Ven 18:00</span><span>export_vendredi.csv · empreinte SHA-256 relevée par la sauvegarde : <code id="refhash">c0cb7c10fb53d0dcb906d5c34f17d87da61aca6b8cd0d16bdc9d86b503fbb34f</code></span></div>
+        <div class="l"><span class="t">Dim 22:14</span><span>UPDATE table clients (champ iban) · compte : <code>superviseur-ecoute</code> · poste PC-SALLE2-04</span></div>
+        <div class="l"><span class="t">Dim 22:16</span><span>UPDATE table clients (champ iban) · compte : <code>superviseur-ecoute</code> · poste PC-SALLE2-04</span></div>
+        <div class="l"><span class="t">Lun 08:05</span><span>export_lundi.csv généré pour le service comptable</span></div>
+      </div>
+      <p class="hint" style="margin-top:8px">Le compte <code>superviseur-ecoute</code> est partagé par les 15 superviseurs (dossier CentreCall).</p>
+    </div>
+
+    <div class="files" style="margin-top:12px">
+      <div class="card"><div class="fhead"><span class="fname">export_vendredi.csv</span><button class="btn ghost" data-copy="A">Copier le texte</button></div>
+        <pre id="fa"></pre>
+        <button class="btn" style="margin-top:10px" data-hash="A">Calculer le SHA-256</button>
+        <div class="hash" id="ha" aria-live="polite">Empreinte non calculée</div></div>
+      <div class="card"><div class="fhead"><span class="fname">export_lundi.csv</span><button class="btn ghost" data-copy="B">Copier le texte</button></div>
+        <pre id="fb"></pre>
+        <button class="btn" style="margin-top:10px" data-hash="B">Calculer le SHA-256</button>
+        <div class="hash" id="hb" aria-live="polite">Empreinte non calculée</div></div>
+    </div>
+
+    <div class="card plain">
+      <h3>Pour le faire aussi dans un terminal (bonus, 5 min)</h3>
+      <p class="hint" style="margin-top:6px;max-width:68ch">Sous Linux, WSL ou Git Bash : <code>cat &gt; lundi.csv</code>, collez le texte copié, <code>Ctrl+D</code>, puis <code>sha256sum lundi.csv</code>. Vous devez retrouver l'empreinte affichée ci-dessus. Sous Windows avec le Bloc-notes, <code>certutil -hashfile lundi.csv SHA256</code> donne une autre valeur : cherchez pourquoi (indice : la fin de ligne).</p>
+    </div>
+    <div id="q-m1"></div>
+  </section>
+
+  <!-- M2 -->
+  <section class="mission" id="m2">
+    <div class="mhead"><span class="mtag">M2</span><h2>Quels mots de passe tiennent face à une attaque ?</h2><span class="mmeta">incidents I3 et I6 · 20 min</span></div>
+    <p class="brief">Un superviseur a utilisé des comptes qui n'étaient pas les siens, et 50 000 enregistrements sont en vente. Avant de réécrire la politique de mots de passe, mesurez ce qui résiste vraiment. Le testeur travaille dans votre navigateur : rien n'est envoyé.</p>
+    <div class="pwgrid" id="pwgrid"></div>
+    <div class="card plain">
+      <h3>Testez le vôtre (ne saisissez jamais un mot de passe que vous utilisez réellement)</h3>
+      <div class="free"><input id="pwfree" type="text" autocomplete="off" spellcheck="false" placeholder="Essayez une phrase, un mot, une suite de caractères" aria-label="Mot de passe à tester"></div>
+      <p class="live" id="pwlive">Saisissez un exemple pour voir l'estimation.</p>
+      <p class="hint" style="margin-top:8px;max-width:68ch">Estimation pédagogique. Elle suppose une attaque hors ligne à 10 milliards d'essais par seconde sur une empreinte rapide (cas d'une base volée), puis 10 000 essais par seconde si l'empreinte est lente et salée.</p>
+    </div>
+    <div id="q-m2"></div>
+  </section>
+
+  <!-- M3 -->
+  <section class="mission" id="m3">
+    <div class="mhead"><span class="mtag">M3</span><h2>Analysez le message qui a lancé le rançongiciel</h2><span class="mmeta">incident I2 · 20 min</span></div>
+    <p class="brief">Trois postes ont été chiffrés après l'ouverture d'une « facture ». Voici le message reconstitué (domaines fictifs en <code>.example</code>). Cliquez sur chaque élément qui doit éveiller un soupçon, sans toucher à ce qui est normal. Rien dans cette page ne peut s'exécuter.</p>
+    <div class="mail" id="mail">
+      <div class="mail-h">
+        <div><span class="k">De</span><span><button class="flag" data-f="exp">Facturation ComPlus &lt;service@complus-facture.example&gt;</button></span></div>
+        <div><span class="k">À</span><span>conseiller@centrecall.example</span></div>
+        <div><span class="k">Objet</span><span><button class="flag" data-f="urg">URGENT : facture impayée n° 8841, coupure de ligne dans 24 h</button></span></div>
+        <div><span class="k">Date</span><span><button class="flag" data-f="date">Lundi 19 octobre 2026, 08:12</button></span></div>
+      </div>
+      <div class="mail-b">
+        <p><button class="flag" data-f="hello">Cher client,</button></p>
+        <p>Votre dernière facture n'a pas pu être prélevée. Pour éviter la suspension de votre ligne, consultez-la et réglez-la immédiatement.</p>
+        <div><button class="flag" data-f="link">https://espace.complus.example/factures/8841</button>
+          <div class="linkbox" id="linkbox" hidden>Destination réelle : http://complus-paiement.example/connexion?ref=8841</div>
+          <div style="margin-top:8px"><button class="btn ghost" id="showlink" type="button">Afficher la destination réelle du lien</button></div></div>
+        <div><span class="att"><button class="flag" data-f="att">Facture_8841.pdf.exe</button> <span class="hint">· 2,3 Mo</span></span></div>
+        <p class="hint"><button class="flag" data-f="sign">ComPlus Services · 12 rue des Tanneurs, 67000 Strasbourg</button></p>
+      </div>
+    </div>
+    <div id="q-m3"></div>
+  </section>
+
+  <!-- M4 -->
+  <section class="mission" id="m4">
+    <div class="mhead"><span class="mtag">M4</span><h2>Une mesure à chaque étape de l'attaque</h2><span class="mmeta">incident I2 · 20 min</span></div>
+    <p class="brief">Le rançongiciel a suivi six étapes. Pour chacune, choisissez la mesure la plus adaptée. La page indique ensuite si elle sert à prévenir (P), détecter (D) ou réagir (R). Une défense en profondeur couvre les trois.</p>
+    <div class="chain" id="chain"></div>
+    <div class="card plain" id="chainsum" hidden></div>
+  </section>
+
+
+  <!-- M5 -->
+  <section class="mission" id="m5">
+    <div class="mhead"><span class="mtag">M5</span><h2>Sûreté ou sécurité, et qui nous attaque ?</h2><span class="mmeta">incidents I1, I3, I6 · 20 min</span></div>
+    <p class="brief">Deux réflexes d'analyste : savoir si un événement relève de la sûreté (accident, panne, sinistre) ou de la sécurité (acte malveillant), puis identifier le profil de l'attaquant, car la défense n'est pas la même.</p>
+    <div class="card"><h3>Partie A · Sûreté ou sécurité ? <span class="hint">(2 pts)</span></h3><div id="m5a"></div></div>
+    <div class="card"><h3>Partie B · Quel profil d'attaquant ? <span class="hint">(3 pts)</span></h3><div id="m5b"></div></div>
+    <div class="qa" style="margin-top:12px"><button class="btn" id="m5go" type="button">Valider la mission</button></div>
+    <div class="fb" id="m5fb" hidden></div>
+  </section>
+
+  <!-- M6 -->
+  <section class="mission" id="m6">
+    <div class="mhead"><span class="mtag">M6</span><h2>Analyse de risque : quoi traiter en premier ?</h2><span class="mmeta">tous incidents · 25 min</span></div>
+    <p class="brief">Un risque se mesure par sa <b>gravité</b> (impact si cela arrive) et sa <b>vraisemblance</b> (probabilité que cela arrive). Criticité = gravité × vraisemblance. Notez les six risques de CentreCall, puis comparez avec la grille de référence.</p>
+    <div class="card plain scale"><b>Gravité</b> : 1 négligeable · 2 limitée · 3 importante · 4 critique (arrêt d'activité, données de milliers de clients).<br><b>Vraisemblance</b> : 1 improbable · 2 possible · 3 probable (déjà vu ou facile) · 4 quasi certain (déjà présent).</div>
+    <div class="card"><div id="m6list"></div><div class="qa" style="margin-top:10px"><button class="btn" id="m6go" type="button">Valider la notation</button></div><div class="fb" id="m6fb" hidden></div></div>
+  </section>
+
+  <!-- M7 -->
+  <section class="mission" id="m7">
+    <div class="mhead"><span class="mtag">M7</span><h2>Plan d'action sous budget</h2><span class="mmeta">risques de M6 · 25 min</span></div>
+    <p class="brief">La direction accorde <b>12 000 €</b>. Choisissez les mesures qui traitent les risques les plus critiques (criticité de 9 ou plus d'après M6), en couvrant les trois temps : prévenir, détecter, réagir. Une dépense hors priorité sera sanctionnée.</p>
+    <div class="card"><div class="budget" id="budget"><span>Budget : <b id="spent">0</b> / 12 000 €</span><span id="bmsg">Choisissez vos mesures</span></div><div class="meas" id="meas"></div>
+    <div class="qa" style="margin-top:12px"><button class="btn" id="m7go" type="button">Valider le plan</button></div><div class="fb" id="m7fb" hidden></div></div>
+  </section>
+
+  <!-- M8 -->
+  <section class="mission" id="m8">
+    <div class="mhead"><span class="mtag">M8</span><h2>Simulation de crise : les 48 premières heures</h2><span class="mmeta">incident I2 · 35 min</span></div>
+    <p class="brief">Lundi, 08:40. Le rançongiciel frappe pour de vrai. À chaque étape de la chronologie, prenez la bonne décision. Chaque choix est corrigé tout de suite : notez le raisonnement, il sert au débrief.</p>
+    <div class="chain" id="crise"></div>
+    <div class="card plain" id="crisesum" hidden></div>
+  </section>
+
+  <!-- Bilan -->
+  <section class="mission" id="bilan">
+    <div class="mhead"><span class="mtag">Bilan</span><h2>Compte rendu de la cellule de crise</h2></div>
+    <div class="card">
+      <div class="score-big"><span id="bigscore">0</span><small> / 45</small></div>
+      <p id="verdict" class="hint" style="margin-top:8px">Terminez les missions pour obtenir votre bilan.</p>
+      <div class="split" id="split"></div>
+      <label class="f">Noms du binôme<input id="names" type="text" placeholder="Prénom NOM et Prénom NOM"></label>
+      <label class="f">Note de synthèse à la direction (5 lignes : ce qui s'est passé, les trois risques majeurs, le plan retenu, ce qu'il reste à faire)<textarea id="synth" rows="5"></textarea></label>
+      <label class="f">Une phrase : l'incident qui vous a le plus appris, et pourquoi<textarea id="learn"></textarea></label>
+      <label class="f">Une mesure que vous mettriez en place demain chez CentreCall<textarea id="measure"></textarea></label>
+      <div class="qa"><button class="btn" id="mkreport" type="button">Générer le compte rendu</button><button class="btn ghost" id="copyreport" type="button">Copier</button><span class="hint" id="copied"></span></div>
+      <label class="f">À coller dans le dépôt Moodle<textarea id="report" class="report" readonly></textarea></label>
+    </div>
+    <p class="foot">Cas fictif : CentreCall, ComPlus et tous les noms, comptes et IBAN de cette page sont inventés. Les domaines en <code>.example</code> ne peuvent pas exister sur Internet.</p>
+  </section>
+</div>
+
+<script>
+const CSV_A = "id;nom;ville;iban\nC-1001;MULLER Anne;Strasbourg;FR76 3000 4012 3400 0101 2345 678\nC-1002;SCHMITT Paul;Haguenau;FR76 3000 4012 3400 0202 3456 781\nC-1003;WEBER Claire;Schiltigheim;FR76 3000 4012 3400 0303 4567 894\nC-1004;KLEIN Marc;Illkirch;FR76 3000 4012 3400 0404 5678 907\nC-1005;ZIMMER Lea;Strasbourg;FR76 3000 4012 3400 0505 6789 010\nC-1006;BERNARD Hugo;Bischheim;FR76 3000 4012 3400 0606 7890 123\nC-1007;HUBER Sonia;Strasbourg;FR76 3000 4012 3400 0707 8901 236\nC-1008;MEYER Lucas;Lingolsheim;FR76 3000 4012 3400 0808 9012 349\n";
+const CSV_B = "id;nom;ville;iban\nC-1001;MULLER Anne;Strasbourg;FR76 3000 4012 3400 0101 2345 678\nC-1002;SCHMITT Paul;Haguenau;FR76 3000 4012 3400 0202 3456 781\nC-1003;WEBER Claire;Schiltigheim;FR76 1999 8001 7700 0000 0777 451\nC-1004;KLEIN Marc;Illkirch;FR76 3000 4012 3400 0404 5678 907\nC-1005;ZIMMER Lea;Strasbourg;FR76 3000 4012 3400 0505 6789 010\nC-1006;BERNARD Hugo;Bischheim;FR76 1999 8001 7700 0000 0777 451\nC-1007;HUBER Sonia;Strasbourg;FR76 3000 4012 3400 0707 8901 236\nC-1008;MEYER Lucas;Lingolsheim;FR76 3000 4012 3400 0808 9012 349\n";
+const HASH_A = "c0cb7c10fb53d0dcb906d5c34f17d87da61aca6b8cd0d16bdc9d86b503fbb34f", HASH_B = "56b12c77a6572b3fdf030f1f972ec18076d95ef99badf15c1cfffc6a484fc690";
+
+/* ---------- SHA-256 (sans dépendance), constantes dérivées des nombres premiers ---------- */
+const SHA = (() => {
+  const primes = []; for (let n = 2; primes.length < 64; n++) { let p = true; for (let i = 0; i < primes.length && primes[i] * primes[i] <= n; i++) if (n % primes[i] === 0) { p = false; break; } if (p) primes.push(n); }
+  const frac = x => (x - Math.floor(x));
+  const K = primes.map(p => Math.floor(frac(Math.cbrt(p)) * 4294967296) >>> 0);
+  const H0 = primes.slice(0, 8).map(p => Math.floor(frac(Math.sqrt(p)) * 4294967296) >>> 0);
+  const rotr = (x, n) => (x >>> n) | (x << (32 - n));
+  return function (text) {
+    const bytes = Array.from(new TextEncoder().encode(text));
+    const bitLen = bytes.length * 8; bytes.push(0x80);
+    while (bytes.length % 64 !== 56) bytes.push(0);
+    const hi = Math.floor(bitLen / 4294967296), lo = bitLen >>> 0;
+    for (let i = 3; i >= 0; i--) bytes.push((hi >>> (i * 8)) & 255);
+    for (let i = 3; i >= 0; i--) bytes.push((lo >>> (i * 8)) & 255);
+    const h = H0.slice();
+    for (let off = 0; off < bytes.length; off += 64) {
+      const w = new Array(64);
+      for (let i = 0; i < 16; i++) w[i] = ((bytes[off + 4 * i] << 24) | (bytes[off + 4 * i + 1] << 16) | (bytes[off + 4 * i + 2] << 8) | bytes[off + 4 * i + 3]) >>> 0;
+      for (let i = 16; i < 64; i++) {
+        const s0 = rotr(w[i - 15], 7) ^ rotr(w[i - 15], 18) ^ (w[i - 15] >>> 3);
+        const s1 = rotr(w[i - 2], 17) ^ rotr(w[i - 2], 19) ^ (w[i - 2] >>> 10);
+        w[i] = (w[i - 16] + s0 + w[i - 7] + s1) >>> 0;
+      }
+      let [a, b, c, d, e, f, g, hh] = h;
+      for (let i = 0; i < 64; i++) {
+        const S1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25), ch = (e & f) ^ (~e & g);
+        const t1 = (hh + S1 + ch + K[i] + w[i]) >>> 0;
+        const S0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22), mj = (a & b) ^ (a & c) ^ (b & c);
+        const t2 = (S0 + mj) >>> 0;
+        hh = g; g = f; f = e; e = (d + t1) >>> 0; d = c; c = b; b = a; a = (t1 + t2) >>> 0;
+      }
+      h[0] = (h[0] + a) >>> 0; h[1] = (h[1] + b) >>> 0; h[2] = (h[2] + c) >>> 0; h[3] = (h[3] + d) >>> 0;
+      h[4] = (h[4] + e) >>> 0; h[5] = (h[5] + f) >>> 0; h[6] = (h[6] + g) >>> 0; h[7] = (h[7] + hh) >>> 0;
+    }
+    return h.map(x => x.toString(16).padStart(8, '0')).join('');
+  };
+})();
+
+/* ---------- Estimation de robustesse des mots de passe ---------- */
+const COMMON = new Set(['123456','123456789','azerty','azerty123','azertyuiop','password','password1','motdepasse','qwerty','qwerty123','admin','admin123','bonjour','soleil','doudou','iloveyou','000000','111111','abc123','welcome','centrecall','strasbourg','superviseur','letmein','changeme']);
+function fmtTime(s) {
+  if (s < 1) return 'moins d’une seconde';
+  const U = [[60,'seconde'],[60,'minute'],[24,'heure'],[365,'jour'],[1000,'an'],[1000,'millier d’années'],[1000,'million d’années'],[1e12,'milliard d’années']];
+  let v = s, i = 0; const names = ['seconde','minute','heure','jour','an'];
+  const steps = [60, 60, 24, 365];
+  for (i = 0; i < steps.length && v >= steps[i]; i++) v /= steps[i];
+  if (i < 4) { const r = Math.max(1, Math.round(v)); return r + ' ' + names[i] + (r > 1 ? 's' : ''); }
+  const y = v; // années
+  if (y > 1e12) return 'plus de 1\u202f000 milliards d\u2019ann\u00e9es';
+  if (y < 1000) return Math.round(y) + ' ans';
+  if (y < 1e6) return Math.round(y / 1000) + ' mille ans';
+  if (y < 1e9) return Math.round(y / 1e6) + ' millions d’années';
+  return Math.round(y / 1e9) + ' milliards d’années';
+}
+function estimate(pw) {
+  const low = pw.toLowerCase();
+  let bits, kind;
+  const words = pw.split(/[-\s_]+/).filter(Boolean);
+  if (!pw) return null;
+  if (COMMON.has(low)) { bits = 0; kind = 'figure dans les listes de mots de passe courants'; }
+  else if (words.length >= 4 && words.every(x => /^[A-Za-zÀ-ÿ]{3,10}$/.test(x))) { bits = words.length * 12.9; kind = 'phrase de passe (' + words.length + ' mots, liste de 7 776 mots)'; }
+  else if (/^[A-Za-zÀ-ÿ]{4,}\d{0,4}[^A-Za-z0-9]?$/.test(pw)) {
+    const m = pw.match(/^([A-Za-zÀ-ÿ]{4,})(\d{0,4})([^A-Za-z0-9]?)$/);
+    bits = 17 + (m[2] ? m[2].length * 3.32 : 0) + (m[3] ? 4 : 0) + (/^[A-Z]/.test(m[1]) ? 1 : 0);
+    kind = 'mot du dictionnaire + chiffres ou symbole : structure prévisible';
+  } else {
+    let cs = 0; if (/[a-z]/.test(pw)) cs += 26; if (/[A-Z]/.test(pw)) cs += 26; if (/\d/.test(pw)) cs += 10; if (/[^A-Za-z0-9]/.test(pw)) cs += 33;
+    bits = pw.length * Math.log2(Math.max(cs, 2)); kind = 'suite aléatoire (' + cs + ' caractères possibles)';
+  }
+  const guesses = Math.pow(2, bits);
+  return { bits, kind, fast: guesses / 2 / 1e10, slow: guesses / 2 / 1e4, len: pw.length };
+}
+function meterPct(bits) { return Math.min(100, Math.round(bits / 100 * 100)); }
+
+/* ---------- Données du TP ---------- */
+const PWS = [
+  { id: 'P1', v: 'azerty123' },
+  { id: 'P2', v: 'CentreCall2026!' },
+  { id: 'P3', v: 'Zk#9tQ!' },
+  { id: 'P4', v: 'k4T!mP8vXw2#Lq' },
+  { id: 'P5', v: 'chat pluie velo sapin nuage' }
+];
+const CHAIN = [
+  { t: 'Reconnaissance', d: 'L’attaquant repère des adresses e-mail de conseillers sur le site et les réseaux sociaux.',
+    o: [['Limiter les informations publiques (organigramme, adresses nominatives) et surveiller les fuites', 'P', 1], ['Restaurer la sauvegarde de la veille', 'R', 0], ['Isoler les postes chiffrés du réseau', 'R', 0], ['Acheter une cyber-assurance', 'R', 0]], why: 'La reconnaissance se prépare avec des informations publiques : en montrer moins réduit la surface d’attaque (prévenir).' },
+  { t: 'Intrusion (hameçonnage)', d: 'Un conseiller ouvre la fausse facture reçue par e-mail.',
+    o: [['Ajouter un second écran dans chaque salle', 'P', 0], ['Filtrer les pièces jointes dangereuses et sensibiliser les conseillers au signalement', 'P', 1], ['Changer le mot de passe Wi-Fi chaque mois', 'P', 0], ['Augmenter le débit Internet', 'P', 0]], why: 'Le message arrive par e-mail : filtrage des pièces jointes et sensibilisation réduisent la probabilité qu’un conseiller l’ouvre (prévenir).' },
+  { t: 'Installation', d: 'Le programme malveillant s’exécute sur le poste et s’installe.',
+    o: [['Une solution antivirus/EDR qui alerte sur l’exécution d’un fichier suspect', 'D', 1], ['Mettre en place une charte graphique', 'P', 0], ['Imprimer les fiches clients', 'P', 0], ['Prolonger la durée de conservation des appels', 'P', 0]], why: 'Une alerte sur un comportement suspect permet de voir l’attaque tôt (détecter).' },
+  { t: 'Propagation', d: 'Le programme saute de poste en poste, avec les droits du compte connecté.',
+    o: [['Segmenter le réseau et donner des comptes à moindre privilège', 'P', 1], ['Partager un seul compte administrateur pour aller plus vite', 'P', 0], ['Désactiver les journaux pour gagner de la place', 'D', 0], ['Laisser tous les postes dans le même réseau plat', 'P', 0]], why: 'Segmentation et moindre privilège limitent ce que l’attaquant peut atteindre depuis un poste (prévenir).' },
+  { t: 'Action (chiffrement)', d: 'Les fichiers de trois postes sont chiffrés.',
+    o: [['Isoler les postes touchés et restaurer depuis une sauvegarde hors ligne testée', 'R', 1], ['Éteindre toutes les lumières du bâtiment', 'R', 0], ['Attendre la fin de la journée', 'R', 0], ['Renommer les fichiers chiffrés', 'R', 0]], why: 'Une fois le chiffrement lancé, on limite les dégâts et on restaure : c’est de la réaction. La sauvegarde ne sert que si elle est hors ligne et testée.' },
+  { t: 'Rançon', d: 'Un message demande un paiement en échange de la clé de déchiffrement.',
+    o: [['Activer la cellule de crise, ne pas payer, déposer plainte et notifier la CNIL si des données personnelles sont touchées', 'R', 1], ['Payer immédiatement pour gagner du temps', 'R', 0], ['Supprimer les journaux pour effacer les traces', 'R', 0], ['Ne rien dire aux clients ni aux autorités', 'R', 0]], why: 'Payer ne garantit rien et finance l’attaquant. On réagit : cellule de crise, plainte, et notification de la violation de données dans les 72 h si des données personnelles sont concernées.' }
+];
+const MAIL_FLAGS = { exp: true, urg: true, hello: true, link: true, att: true, date: false, sign: false };
+const MAIL_WHY = {
+  exp: 'Le domaine <code>complus-facture.example</code> n’est pas celui de ComPlus (<code>complus.example</code>).',
+  urg: 'Urgence et menace de coupure : la pression pousse à agir sans réfléchir.',
+  hello: 'Formule générique : un vrai opérateur connaît votre nom.',
+  link: 'Le texte du lien montre <code>complus.example</code> mais la destination réelle est <code>complus-paiement.example</code>.',
+  att: 'Double extension : c’est un exécutable (<code>.exe</code>) qui se fait passer pour un PDF.',
+  date: 'Une date et une heure de réception normales ne prouvent rien.',
+  sign: 'Une adresse postale plausible se copie facilement : ce n’est pas un indice fiable.'
+};
+
+/* ---------- Questions ---------- */
+const M5 = {"EV": [["Inondation de la salle serveurs après une rupture de canalisation", "sureté", "Accident : aucune intention de nuire, c'est de la sûreté."], ["Un salarié mécontent supprime volontairement la base clients", "sécurité", "Acte malveillant : c'est de la sécurité."], ["Coupure électrique de 3 heures, sans onduleur", "sureté", "Panne : sûreté de fonctionnement."], ["Clé USB piégée déposée sur le parking de CentreCall", "sécurité", "Acte volontaire pour pénétrer le SI : sécurité."]], "PROF": ["Cybercriminel organisé", "Initié malveillant", "Hacktiviste", "Amateur opportuniste", "Concurrent (espionnage économique)", "Acteur étatique"], "SC": [["Un mail « facture » part vers des milliers d'entreprises ; le rançongiciel réclame 20 000 € en cryptomonnaie.", 0, "Motivation financière, opération industrialisée : cybercriminel organisé (I2)."], ["Un ancien conseiller encore titulaire de ses accès copie 50 000 fiches clients et les met en vente.", 1, "Il connaît le SI et dispose d'accès légitimes : initié malveillant (I6)."], ["Le site vitrine affiche un message politique dénonçant la délocalisation des centres d'appels.", 2, "Motivation idéologique, visibilité recherchée : hacktiviste."], ["Un adolescent lance contre le site un outil téléchargé en ligne, juste pour voir ce que cela donne.", 3, "Peu de moyens, aucune cible précise : amateur opportuniste."], ["Un prestataire copie la liste des grands comptes de CentreCall pour l'offrir à un concurrent.", 4, "Objectif commercial par le vol d'information : espionnage économique."], ["Pendant 18 mois, un attaquant très discret reste dans le réseau de l'opérateur pour écouter des communications ciblées.", 5, "Moyens importants, patience, cible stratégique : acteur étatique."]]};
+const RISKS = [["R1", "Rançongiciel déclenché par un message d'hameçonnage (I2)", 4, 3, "Arrêt total de l'activité, déjà arrivé : gravité 4, vraisemblance 3."], ["R2", "Modification frauduleuse des IBAN dans l'export clients (I4)", 3, 3, "Pertes financières et clients lésés ; déjà constaté : gravité 3, vraisemblance 3."], ["R3", "Fuite des 50 000 fiches clients (I6)", 4, 3, "Atteinte à la vie privée de milliers de personnes, notification CNIL : gravité 4 ; déjà proposées à la vente : vraisemblance 3."], ["R4", "Compte superviseur partagé par 15 personnes (I3)", 2, 4, "Impact direct limité mais absence de preuve et d'imputabilité : gravité 2 ; situation actuelle : vraisemblance 4."], ["R5", "Coupure électrique de la salle serveurs", 3, 2, "Arrêt de quelques heures : gravité 3 ; événement possible : vraisemblance 2."], ["R6", "Défaçage du site vitrine", 1, 3, "Image touchée mais pas d'activité ni de données : gravité 1 ; courant : vraisemblance 3."]];
+const MEAS = [["H", "Sensibilisation à l'hameçonnage et procédure de signalement", 1000, ["R1"], "P"], ["A", "Filtrage des messages et analyse des pièces jointes (passerelle)", 3000, ["R1"], "P"], ["D", "Comptes individuels, journaux centralisés et contrôle d'intégrité des exports", 2000, ["R2", "R4"], "D"], ["E", "Chiffrement des exports et cloisonnement de l'accès aux fiches clients", 4000, ["R3"], "P"], ["C", "Sauvegardes hors ligne testées et procédure de restauration", 2000, ["R1", "R5"], "R"], ["B", "Détection sur les postes (EDR) avec supervision 24 h/24", 5000, ["R1", "R3"], "D"], ["F", "Onduleur et groupe électrogène pour la salle serveurs", 6000, ["R5"], "P"], ["G", "Refonte graphique du site vitrine", 4000, ["R6"], "P"]];
+const CRISE = [{"t": "Lundi 08:40", "q": "Plusieurs postes affichent la demande de rançon et les fichiers se chiffrent. Premier geste ?", "o": [["Isoler du réseau les postes touchés (câble, Wi-Fi) sans les éteindre ni les formater, puis alerter la cellule de crise", 1], ["Redémarrer tous les postes pour arrêter le chiffrement", 0], ["Payer tout de suite pour récupérer les fichiers avant la fin de la journée", 0], ["Formater les postes touchés pour repartir sur une base propre", 0]], "why": "Il faut stopper la propagation sans détruire les preuves : l'isolement réseau le fait. Redémarrer ou formater efface des traces, payer n'offre aucune garantie."}, {"t": "09:10", "q": "La messagerie interne est peut-être compromise. Comment coordonner la réponse ?", "o": [["Chaque service gère de son côté pour aller plus vite", 0], ["Une cellule de crise avec un chef de crise, un canal hors du SI (téléphone, messagerie externe) et une main courante horodatée", 1], ["Informer tous les salariés par la messagerie interne habituelle", 0], ["Attendre le prestataire informatique sans rien décider", 0]], "why": "Une crise se pilote : un décideur, des rôles, un canal sûr et une trace écrite. Utiliser le SI compromis revient à informer l'attaquant."}, {"t": "11:00", "q": "Une sauvegarde de vendredi existe. Que faire avant de restaurer ?", "o": [["Restaurer immédiatement sur le réseau actuel pour reprendre l'appel clients", 0], ["Supprimer les anciennes sauvegardes pour libérer de la place", 0], ["Vérifier que la sauvegarde est saine et antérieure à l'infection, puis restaurer sur un réseau nettoyé et isolé", 1], ["Restaurer seulement les fichiers du directeur", 0]], "why": "Restaurer sur un réseau encore infecté, ou depuis une sauvegarde déjà contaminée, relance l'incident. Une sauvegarde non testée n'est pas une sauvegarde."}, {"t": "Mardi 08:00", "q": "Vous découvrez que 50 000 fiches clients sont proposées à la vente. Quelle obligation ?", "o": [["Attendre la fin de l'enquête avant d'en parler à qui que ce soit", 0], ["Notifier la CNIL dans les 72 heures après la découverte, et informer les personnes concernées si le risque est élevé", 1], ["Ne rien faire : les données sont chiffrées donc personne ne peut les lire", 0], ["Prévenir seulement la presse pour garder le contrôle du message", 0]], "why": "Une violation de données personnelles se notifie à la CNIL sous 72 h. Les personnes sont informées quand le risque pour elles est élevé (coordonnées bancaires, par exemple)."}, {"t": "Mardi 16:00", "q": "Les attaquants donnent 24 heures pour payer. Position de la cellule de crise ?", "o": [["Négocier seul avec les attaquants, sans prévenir personne", 0], ["Payer discrètement en cryptomonnaie pour éviter la publicité", 0], ["Ne pas payer, déposer plainte, conserver les preuves et prévenir l'assureur", 1], ["Supprimer la note de rançon et les journaux pour éviter les questions", 0]], "why": "Payer finance les criminels et ne garantit ni le déchiffrement ni la non-diffusion. On dépose plainte, on conserve les preuves et on déclare le sinistre à l'assureur."}];
+const QS = [
+  { id: 'q11', m: 1, n: '1.1', pts: 1, t: 'Quel fichier a la même empreinte que la référence relevée vendredi ?', o: [['export_vendredi.csv', 1], ['export_lundi.csv', 0], ['Les deux', 0], ['Aucun des deux', 0]], why: 'Seul export_vendredi.csv redonne l’empreinte de référence. Un seul caractère modifié change toute l’empreinte : c’est un contrôle d’intégrité.' },
+  { id: 'q12', m: 1, n: '1.2', pts: 2, custom: 'rows' },
+  { id: 'q13', m: 1, n: '1.3', pts: 1, t: 'Quel principe de sécurité est d’abord touché par la modification des IBAN ?', o: [['Disponibilité', 0], ['Intégrité', 1], ['Confidentialité', 0], ['Preuve', 0]], why: 'Les données ont été modifiées sans autorisation : atteinte à l’intégrité. La preuve est touchée aussi (question suivante).' },
+  { id: 'q14', m: 1, n: '1.4', pts: 1, t: 'Le journal montre deux modifications depuis PC-SALLE2-04. Pourquoi ne peut-on pas dire qui les a faites ?', o: [['Le compte superviseur-ecoute est partagé par 15 personnes : on ne peut pas imputer l’action à l’une d’elles', 1], ['Le journal ne contient pas d’heure', 0], ['Le fichier CSV est trop petit', 0], ['Un SHA-256 ne se calcule pas sur un fichier modifié', 0]], why: 'Sans compte individuel, pas d’imputabilité : c’est le principe de preuve. Remède : un compte par personne et des journaux conservés.' },
+  { id: 'q21', m: 2, n: '2.1', pts: 1, t: 'Parmi P1 à P5, lequel résiste le mieux à une attaque hors ligne ?', o: [['P1 : azerty123', 0], ['P2 : CentreCall2026!', 0], ['P3 : Zk#9tQ!', 0], ['P4 : k4T!mP8vXw2#Lq', 1], ['P5 : chat pluie velo sapin nuage', 0]], why: 'P4 est aléatoire et long (14 caractères) : il résiste le mieux, mais il est impossible à retenir sans gestionnaire de mots de passe.' },
+  { id: 'q22', m: 2, n: '2.2', pts: 1, t: 'Lequel combine bonne résistance et facilité de mémorisation ?', o: [['P2 : CentreCall2026!', 0], ['P3 : Zk#9tQ!', 0], ['P5 : chat pluie velo sapin nuage', 1], ['P1 : azerty123', 0]], why: 'Une phrase de passe de plusieurs mots tirés au hasard est longue, donc robuste, et se retient. La longueur compte plus que la complexité apparente.' },
+  { id: 'q23', m: 2, n: '2.3', pts: 1, t: 'P2 contient une majuscule, un chiffre et un symbole. Pourquoi tombe-t-il en quelques secondes seulement ?', o: [['Il est trop court', 0], ['Il suit une structure prévisible : mot connu, année, symbole final', 1], ['Les symboles sont interdits par les attaquants', 0], ['Parce qu’il contient un chiffre', 0]], why: 'Les attaquants testent d’abord mots courants + années + symbole final. Les règles de composition donnent une fausse impression de sécurité.' },
+  { id: 'q24', m: 2, n: '2.4', pts: 2, multi: 3, t: 'Choisissez les 3 mesures les plus utiles pour la nouvelle politique de CentreCall.', o: [['Mots de passe longs (12 caractères ou plus) ou phrases de passe', 1], ['Authentification multifacteur sur les accès sensibles', 1], ['Un compte individuel par superviseur, plus de compte partagé', 1], ['Changement obligatoire tous les 30 jours', 0], ['Interdire les espaces dans les mots de passe', 0], ['Imprimer le mot de passe et le coller sous le clavier', 0]], why: 'Longueur, MFA et comptes individuels. Un changement forcé très fréquent pousse à des variantes prévisibles (Mot1, Mot2) ; interdire les espaces affaiblit les phrases de passe.' },
+  { id: 'q32', m: 3, n: '3.2', pts: 1, t: 'Que doit faire le conseiller qui reçoit ce message ?', o: [['Ouvrir la pièce jointe pour vérifier si la facture existe', 0], ['Cliquer sur le lien en vérifiant que la page ressemble au site habituel', 0], ['Ne pas ouvrir, le signaler au service sécurité, puis le supprimer', 1], ['Le transférer à tous les collègues pour qu’ils jugent', 0]], why: 'On n’ouvre rien, on signale (pour que la sécurité bloque l’expéditeur et surveille), puis on supprime. Transférer le message multiplie les risques.' },
+  { id: 'q33', m: 3, n: '3.3', pts: 1, t: 'À quelle étape de la chaîne d’attaque correspond ce message ?', o: [['Reconnaissance', 0], ['Intrusion', 1], ['Propagation', 0], ['Rançon', 0]], why: 'Le message est le vecteur d’entrée : c’est l’intrusion par hameçonnage.' }
+];
+
+/* ---------- Moteur ---------- */
+const state = { score: {}, done: {}, hash: {}, flags: {}, rowsPick: {}, chain: {}, answers: {} };
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+const fmt = x => (Math.round(x * 10) / 10).toString().replace('.', ',');
+const MAXM = { 1: 5, 2: 5, 3: 5, 4: 5, 5: 5, 6: 5, 7: 5, 8: 5 };
+
+function mscore(m) {
+  let s = 0;
+  QS.filter(q => q.m === m).forEach(q => { s += state.score[q.id] || 0; });
+  if (m === 3) s += state.score.flags || 0;
+  if (m === 4) s += state.score.chain || 0;
+  if (m >= 5 || m === 0) s += state.score['m' + m] || 0;
+  return s;
+}
+function mdone(m) {
+  if (m >= 5 || m === 0) return !!state.done['m' + m];
+  const need = QS.filter(q => q.m === m).map(q => q.id);
+  if (m === 3) need.push('flags'); if (m === 4) need.push('chain');
+  return need.every(id => state.done[id]);
+}
+function refresh() {
+  let tot = 0;
+  for (let m = 0; m <= 8; m++) { tot += mscore(m); $('#s' + m).classList.toggle('done', mdone(m)); }
+  $('#total').textContent = fmt(tot); $('#bigscore').textContent = fmt(tot);
+  const all = [0, 1, 2, 3, 4, 5, 6, 7, 8].every(mdone); $('#s9').classList.toggle('done', all);
+  $('#split').innerHTML = [0, 1, 2, 3, 4, 5, 6, 7, 8].map(m => '<div><span>M' + m + '</span><strong>' + fmt(mscore(m)) + ' / 5</strong></div>').join('');
+  $('#verdict').textContent = !all ? 'Terminez les neuf missions pour obtenir votre bilan.' :
+    tot >= 36 ? 'Cellule de crise opérationnelle : vous reliez incident, principe touché et mesure.' :
+    tot >= 23 ? 'Bases acquises. Relisez les justifications des questions manquées avant la prochaine séance.' :
+    'Reprenez la fiche de cours (principes D-I-C-P, sûreté et sécurité) puis refaites les missions.';
+  return tot;
+}
+function finish(id, pts, kind, html, root) {
+  state.score[id] = pts; state.done[id] = true;
+  const fb = root.querySelector('.fb'); fb.className = 'fb ' + kind; fb.innerHTML = html; fb.hidden = false;
+  root.classList.remove('ok', 'ko', 'part'); root.classList.add(kind);
+  refresh();
+}
+function renderQ(q) {
+  const host = $('#q-m' + q.m); const root = document.createElement('div'); root.className = 'q'; root.id = q.id;
+  if (q.custom === 'rows') { root.innerHTML = rowsHTML(q); host.appendChild(root); bindRows(q, root); return; }
+  const type = q.multi ? 'checkbox' : 'radio';
+  root.innerHTML = '<div class="qh"><div><div class="qn">Question ' + q.n + '</div><div class="qt">' + q.t + '</div></div><div class="pts">' + q.pts + ' pt' + (q.pts > 1 ? 's' : '') + '</div></div>' +
+    (q.multi ? '<p class="hint" style="margin-top:6px">Cochez exactement ' + q.multi + ' réponses.</p>' : '') +
+    '<div class="opts">' + q.o.map((o, i) => '<label class="opt"><input type="' + type + '" name="' + q.id + '" value="' + i + '"><span>' + o[0] + '</span></label>').join('') + '</div>' +
+    '<div class="qa"><button class="btn" type="button">Valider</button></div><div class="fb" hidden></div>';
+  host.appendChild(root);
+  root.querySelector('.btn').addEventListener('click', ev => {
+    const picked = [...root.querySelectorAll('input:checked')].map(i => +i.value);
+    if (!picked.length) return;
+    if (q.multi && picked.length !== q.multi) { const fb = root.querySelector('.fb'); fb.className = 'fb part'; fb.hidden = false; fb.textContent = 'Cochez exactement ' + q.multi + ' réponses.'; return; }
+    let pts = 0, kind;
+    if (q.multi) {
+      const good = picked.filter(i => q.o[i][1]).length;
+      pts = good === q.multi ? q.pts : good === q.multi - 1 ? q.pts / 2 : 0;
+      kind = pts === q.pts ? 'ok' : pts > 0 ? 'part' : 'ko';
+    } else { pts = q.o[picked[0]][1] ? q.pts : 0; kind = pts ? 'ok' : 'ko'; }
+    root.querySelectorAll('.opt').forEach((el, i) => {
+      const inp = el.querySelector('input'); inp.disabled = true;
+      const good = q.o[i][1];
+      if (picked.includes(i)) el.classList.add(good ? 'right' : 'wrong'); else if (good) el.classList.add('missed');
+    });
+    ev.target.disabled = true;
+    finish(q.id, pts, kind, '<strong>' + (kind === 'ok' ? 'Correct. ' : kind === 'part' ? 'En partie. ' : 'Pas tout à fait. ') + fmt(pts) + ' / ' + q.pts + '.</strong> ' + q.why, root);
+  });
+}
+
+/* ---------- M1 : fichiers, empreintes, lignes ---------- */
+function rowsOf(csv) { return csv.trim().split('\n').slice(1).map(l => l.split(';')); }
+const RA = rowsOf(CSV_A), RB = rowsOf(CSV_B);
+function rowsHTML(q) {
+  return '<div class="qh"><div><div class="qn">Question ' + q.n + '</div><div class="qt">Cochez les lignes dont l’IBAN a été modifié entre vendredi et lundi.</div></div><div class="pts">2 pts</div></div>' +
+    '<div class="tbl-wrap" style="margin-top:10px"><table><thead><tr><th></th><th>id</th><th>nom</th><th>IBAN vendredi</th><th>IBAN lundi</th></tr></thead><tbody>' +
+    RA.map((r, i) => '<tr data-i="' + i + '"><td><input type="checkbox" aria-label="Ligne ' + r[0] + ' modifiée"></td><td class="mono">' + r[0] + '</td><td>' + esc(r[1]) + '</td><td class="iban">' + r[3] + '</td><td class="iban">' + RB[i][3] + '</td></tr>').join('') +
+    '</tbody></table></div><div class="qa"><button class="btn" type="button">Valider</button></div><div class="fb" hidden></div>';
+}
+function bindRows(q, root) {
+  root.querySelector('.btn').addEventListener('click', ev => {
+    const trs = [...root.querySelectorAll('tbody tr')];
+    const picked = trs.filter(t => t.querySelector('input').checked).map(t => +t.dataset.i);
+    const truth = RA.map((r, i) => r[3] !== RB[i][3] ? i : -1).filter(i => i >= 0);
+    const good = picked.filter(i => truth.includes(i)).length, bad = picked.length - good;
+    let pts = bad === 0 && good === truth.length ? 2 : bad === 0 && good === 1 ? 1 : 0;
+    trs.forEach((t, i) => { t.querySelector('input').disabled = true; if (truth.includes(i)) t.classList.add('truth-bad'); });
+    ev.target.disabled = true;
+    const ids = truth.map(i => RA[i][0]).join(' et ');
+    finish(q.id, pts, pts === 2 ? 'ok' : pts ? 'part' : 'ko', '<strong>' + fmt(pts) + ' / 2.</strong> Lignes modifiées : ' + ids + '. Les deux IBAN ont été remplacés par le même compte, <code>' + RB[truth[0]][3] + '</code> : un indice sur l’intention (virements redirigés vers un seul bénéficiaire).', root);
+  });
+}
+$('#fa').textContent = CSV_A; $('#fb').textContent = CSV_B;
+document.querySelectorAll('[data-hash]').forEach(b => b.addEventListener('click', () => {
+  const k = b.dataset.hash, txt = k === 'A' ? CSV_A : CSV_B, h = SHA(txt), el = $(k === 'A' ? '#ha' : '#hb');
+  el.textContent = h; state.hash[k] = h;
+  el.className = 'hash ' + (h === HASH_A ? 'match' : 'diff');
+  el.textContent = h + (h === HASH_A ? '  ✔ identique à la référence' : '  ✘ différente de la référence');
+}));
+document.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', async () => {
+  const txt = b.dataset.copy === 'A' ? CSV_A : CSV_B; const old = b.textContent;
+  try { await navigator.clipboard.writeText(txt); b.textContent = 'Copié'; }
+  catch (e) { const pre = $(b.dataset.copy === 'A' ? '#fa' : '#fb'); const r = document.createRange(); r.selectNodeContents(pre); const s = getSelection(); s.removeAllRanges(); s.addRange(r); b.textContent = 'Sélectionné, faites Ctrl+C'; }
+  setTimeout(() => b.textContent = old, 2200);
+}));
+
+/* ---------- M2 : testeur ---------- */
+function pwCard(p) {
+  const e = estimate(p.v);
+  return '<div class="pw"><div class="tag">' + p.id + '</div><div class="val">' + esc(p.v) + '</div><dl><dt>Longueur</dt><dd>' + e.len + '</dd><dt>Nature</dt><dd style="font-family:var(--sans)">' + e.kind + '</dd><dt>Entropie</dt><dd>' + Math.round(e.bits) + ' bits</dd><dt>Hash rapide</dt><dd>' + fmtTime(e.fast) + '</dd><dt>Hash lent</dt><dd>' + fmtTime(e.slow) + '</dd></dl><div class="meter" aria-hidden="true"><i style="width:' + meterPct(e.bits) + '%;background:' + (e.bits < 35 ? 'var(--crit)' : e.bits < 60 ? 'var(--warn)' : 'var(--ok)') + '"></i></div></div>';
+}
+$('#pwgrid').innerHTML = PWS.map(pwCard).join('');
+$('#pwfree').addEventListener('input', ev => {
+  const e = estimate(ev.target.value); const live = $('#pwlive');
+  live.innerHTML = e ? 'Nature : <b>' + e.kind + '</b> · entropie <b>' + Math.round(e.bits) + ' bits</b> · hash rapide : <b>' + fmtTime(e.fast) + '</b> · hash lent : <b>' + fmtTime(e.slow) + '</b>' : 'Saisissez un exemple pour voir l’estimation.';
+});
+
+/* ---------- M3 : e-mail ---------- */
+document.querySelectorAll('.flag').forEach(b => b.addEventListener('click', () => { if (state.done.flags) return; b.classList.toggle('on'); }));
+$('#showlink').addEventListener('click', () => { const bx = $('#linkbox'); bx.hidden = !bx.hidden; $('#showlink').textContent = bx.hidden ? 'Afficher la destination réelle du lien' : 'Masquer la destination réelle'; });
+(function mailQuestion() {
+  const host = $('#q-m3'); const root = document.createElement('div'); root.className = 'q'; root.id = 'qflags';
+  root.innerHTML = '<div class="qh"><div><div class="qn">Question 3.1</div><div class="qt">Marquez dans le message chaque élément suspect, puis validez.</div></div><div class="pts">3 pts</div></div><div class="qa"><button class="btn" type="button">Valider mon analyse</button></div><div class="fb" hidden></div>';
+  host.appendChild(root);
+  root.querySelector('.btn').addEventListener('click', ev => {
+    const keys = Object.keys(MAIL_FLAGS); let good = 0, bad = 0; const lines = [];
+    keys.forEach(k => {
+      const el = document.querySelector('[data-f="' + k + '"]'); const on = el.classList.contains('on');
+      el.classList.remove('on');
+      if (MAIL_FLAGS[k] && on) { good++; el.classList.add('good'); }
+      else if (MAIL_FLAGS[k] && !on) { el.classList.add('miss'); lines.push('<li><strong>Manqué.</strong> ' + MAIL_WHY[k] + '</li>'); }
+      else if (!MAIL_FLAGS[k] && on) { bad++; el.classList.add('bad'); lines.push('<li><strong>Faux positif.</strong> ' + MAIL_WHY[k] + '</li>'); }
+    });
+    const total = keys.filter(k => MAIL_FLAGS[k]).length;
+    let pts = Math.max(0, Math.round((3 * good / total - 0.5 * bad) * 2) / 2); pts = Math.min(3, pts);
+    ev.target.disabled = true;
+    finish('flags', pts, pts >= 3 ? 'ok' : pts > 0 ? 'part' : 'ko', '<strong>' + fmt(pts) + ' / 3.</strong> ' + good + ' indice(s) sur ' + total + ' repérés, ' + bad + ' faux positif(s).' + (lines.length ? '<ul style="margin:8px 0 0;padding-left:18px">' + lines.join('') + '</ul>' : ' Aucun élément manqué.'), root);
+    $('#linkbox').hidden = false;
+  });
+  // placer la 3.1 avant 3.2 et 3.3
+})();
+QS.filter(q => q.m === 3).forEach(renderQ);
+QS.filter(q => q.m === 1).forEach(renderQ);
+QS.filter(q => q.m === 2).forEach(renderQ);
+
+/* ---------- M4 : chaîne d’attaque ---------- */
+(function chain() {
+  const host = $('#chain');
+  CHAIN.forEach((s, si) => {
+    const el = document.createElement('div'); el.className = 'cs'; el.id = 'cs' + si;
+    el.innerHTML = '<div class="cs-h"><span class="cs-n">' + (si + 1) + '</span><span class="cs-t">' + s.t + '</span></div><div class="cs-d">' + s.d + '</div><div class="opts">' +
+      s.o.map((o, i) => '<label class="opt"><input type="radio" name="c' + si + '" value="' + i + '"><span>' + o[0] + '</span></label>').join('') + '</div><div class="fb" hidden></div>';
+    host.appendChild(el);
+    el.querySelectorAll('input').forEach(inp => inp.addEventListener('change', () => {
+      if (state.chain[si] !== undefined) return;
+      const i = +inp.value, ok = s.o[i][2] === 1; state.chain[si] = ok ? 1 : 0;
+      el.querySelectorAll('.opt').forEach((l, j) => { l.querySelector('input').disabled = true; const t = s.o[j];
+        if (j === i) l.classList.add(ok ? 'right' : 'wrong'); else if (t[2]) l.classList.add('missed');
+        if (t[2]) l.querySelector('span').insertAdjacentHTML('beforeend', '<span class="badge ' + t[1] + '">' + t[1] + '</span>'); });
+      el.classList.add(ok ? 'ok' : 'ko'); const fb = el.querySelector('.fb'); fb.hidden = false; fb.className = 'fb ' + (ok ? 'ok' : 'ko');
+      fb.innerHTML = '<strong>' + (ok ? 'Bien vu. ' : 'Pas la plus adaptée. ') + '</strong>' + s.why;
+      if (Object.keys(state.chain).length === CHAIN.length) {
+        const good = Object.values(state.chain).reduce((a, b) => a + b, 0);
+        const pts = Math.round(good * 5 / CHAIN.length * 2) / 2; state.score.chain = pts; state.done.chain = true;
+        const types = { P: 0, D: 0, R: 0 }; CHAIN.forEach((st, k) => { if (state.chain[k]) types[st.o.find(o => o[2])[1]]++; });
+        const sum = $('#chainsum'); sum.hidden = false;
+        sum.innerHTML = '<h3>Votre défense en profondeur : ' + fmt(pts) + ' / 5</h3><p style="margin-top:6px">' + good + ' mesure(s) pertinente(s) sur ' + CHAIN.length + '. Prévenir (P) : <b>' + types.P + '</b>, détecter (D) : <b>' + types.D + '</b>, réagir (R) : <b>' + types.R + '</b>.</p><p class="hint" style="margin-top:6px">Une seule mesure de détection dans la chaîne : sans journaux ni alertes, on découvre l’attaque trop tard. C’est la question à poser en débrief.</p>';
+        refresh();
+      }
+    }));
+  });
+})();
+
+
+/* ---------- 4 h : M5 à M8 ---------- */
+const NM = 8;
+function okfb(el, kind, html) { el.hidden = false; el.className = 'fb ' + kind; el.innerHTML = html; }
+function setM(m, pts) { state.score['m' + m] = pts; state.done['m' + m] = true; refresh(); }
+
+(function m5() {
+  const A = $('#m5a'), B = $('#m5b');
+  M5.EV.forEach((e, i) => { const d = document.createElement('div'); d.className = 'item'; d.id = 'ea' + i;
+    d.innerHTML = '<div>' + e[0] + '</div><select class="sel" aria-label="Classement"><option value="">Choisir…</option><option value="sureté">Sûreté</option><option value="sécurité">Sécurité</option></select><div class="why" hidden></div>'; A.appendChild(d); });
+  M5.SC.forEach((e, i) => { const d = document.createElement('div'); d.className = 'item'; d.id = 'eb' + i;
+    d.innerHTML = '<div>' + e[0] + '</div><select class="sel" aria-label="Profil"><option value="">Choisir…</option>' + M5.PROF.map((p, k) => '<option value="' + k + '">' + p + '</option>').join('') + '</select><div class="why" hidden></div>'; B.appendChild(d); });
+  $('#m5go').addEventListener('click', () => {
+    const sels = [...document.querySelectorAll('#m5a select, #m5b select')];
+    if (sels.some(s => s.value === '')) { okfb($('#m5fb'), 'part', 'Répondez à toutes les lignes avant de valider.'); return; }
+    let a = 0, b = 0;
+    M5.EV.forEach((e, i) => { const d = $('#ea' + i), v = d.querySelector('select').value.replace('sureté', 'sureté'); const good = (v === e[1] || (v === 'sureté' && e[1] === 'sureté'));
+      if (good) a++; d.classList.add(good ? 'ok' : 'ko'); const w = d.querySelector('.why'); w.hidden = false; w.textContent = (good ? 'Juste. ' : 'Pas tout à fait. ') + e[2]; d.querySelector('select').disabled = true; });
+    M5.SC.forEach((e, i) => { const d = $('#eb' + i), good = +d.querySelector('select').value === e[1];
+      if (good) b++; d.classList.add(good ? 'ok' : 'ko'); const w = d.querySelector('.why'); w.hidden = false; w.textContent = (good ? 'Juste. ' : 'Pas tout à fait. ') + e[2]; d.querySelector('select').disabled = true; });
+    const pts = a * 0.5 + b * 0.5; $('#m5go').disabled = true; state.m5 = { a, b };
+    okfb($('#m5fb'), pts >= 4 ? 'ok' : pts >= 2.5 ? 'part' : 'ko', '<strong>' + fmt(pts) + ' / 5.</strong> Sûreté : ' + a + '/4 · Profils : ' + b + '/6. Retenez le critère : l\'intention (sûreté contre sécurité) et la motivation, les moyens, la proximité avec le SI (profil).');
+    setM(5, pts);
+  });
+})();
+
+(function m6() {
+  const L = $('#m6list');
+  RISKS.forEach((r, i) => { const d = document.createElement('div'); d.className = 'item'; d.id = 'rk' + i;
+    const opt = '<option value="">–</option>' + [1, 2, 3, 4].map(n => '<option>' + n + '</option>').join('');
+    d.innerHTML = '<div><b class="mono">' + r[0] + '</b> · ' + r[1] + '</div><div class="pair"><label>Gravité <select class="sel g">' + opt + '</select></label><label>Vraisemblance <select class="sel v">' + opt + '</select></label></div><div class="why" hidden></div>'; L.appendChild(d); });
+  $('#m6go').addEventListener('click', () => {
+    const rows = RISKS.map((r, i) => { const d = $('#rk' + i); return [d, +d.querySelector('.g').value, +d.querySelector('.v').value]; });
+    if (rows.some(x => !x[1] || !x[2])) { okfb($('#m6fb'), 'part', 'Notez gravité et vraisemblance pour chaque risque.'); return; }
+    let sum = 0;
+    rows.forEach(([d, g, v], i) => { const r = RISKS[i]; const pg = g === r[2] ? 1 : Math.abs(g - r[2]) === 1 ? 0.5 : 0, pv = v === r[3] ? 1 : Math.abs(v - r[3]) === 1 ? 0.5 : 0; sum += pg + pv;
+      d.classList.add(pg + pv === 2 ? 'ok' : pg + pv >= 1 ? '' : 'ko'); d.querySelectorAll('select').forEach(s => s.disabled = true);
+      const w = d.querySelector('.why'); w.hidden = false; w.textContent = 'Vous : ' + g + ' × ' + v + ' = ' + (g * v) + '. Référence : ' + r[2] + ' × ' + r[3] + ' = ' + (r[2] * r[3]) + '. ' + r[4]; });
+    const pts = Math.round(sum / 12 * 5 * 2) / 2; $('#m6go').disabled = true; state.m6 = sum;
+    const rank = RISKS.map(r => [r[0], r[2] * r[3]]).sort((a, b) => b[1] - a[1]).map(x => x[0] + ' (' + x[1] + ')').join(' > ');
+    okfb($('#m6fb'), pts >= 4 ? 'ok' : pts >= 2.5 ? 'part' : 'ko', '<strong>' + fmt(pts) + ' / 5.</strong> Classement de référence : ' + rank + '. Les trois risques critiques à traiter en premier (9 ou plus) : <b>R1, R3, R2</b>. Une notation à un cran près est comptée à moitié.');
+    setM(6, pts);
+  });
+})();
+
+(function m7() {
+  const BUD = 12000, CRIT = ['R1', 'R2', 'R3'];
+  const host = $('#meas');
+  MEAS.forEach((m, i) => { const l = document.createElement('label'); l.className = 'opt';
+    l.innerHTML = '<input type="checkbox" value="' + i + '"><span><b>' + m[1] + '</b><br><span class="hint">Traite : ' + m[3].join(', ') + '</span></span><span class="cost">' + m[2].toLocaleString('fr-FR') + ' €</span>'; host.appendChild(l); });
+  const upd = () => { const ch = [...host.querySelectorAll('input:checked')].map(x => MEAS[+x.value]); const sp = ch.reduce((a, m) => a + m[2], 0);
+    $('#spent').textContent = sp.toLocaleString('fr-FR'); $('#budget').classList.toggle('over', sp > BUD); $('#bmsg').textContent = sp > BUD ? 'Budget dépassé de ' + (sp - BUD).toLocaleString('fr-FR') + ' €' : 'Reste ' + (BUD - sp).toLocaleString('fr-FR') + ' €'; return [ch, sp]; };
+  host.addEventListener('change', upd);
+  $('#m7go').addEventListener('click', () => {
+    const [ch, sp] = upd();
+    if (!ch.length) { okfb($('#m7fb'), 'part', 'Choisissez au moins une mesure.'); return; }
+    if (sp > BUD) { okfb($('#m7fb'), 'ko', 'Le budget de 12 000 € est dépassé : retirez une mesure.'); return; }
+    const covered = CRIT.filter(c => ch.some(m => m[3].includes(c))); const types = new Set(ch.map(m => m[4]));
+    const useless = ch.filter(m => !m[3].some(c => CRIT.includes(c)));
+    const pts = covered.length + (types.size === 3 ? 1 : 0) + (useless.length === 0 ? 1 : 0);
+    host.querySelectorAll('input').forEach(x => x.disabled = true); $('#m7go').disabled = true;
+    host.querySelectorAll('label').forEach((l, i) => { const m = MEAS[i]; if (l.querySelector('input').checked) l.classList.add(m[3].some(c => CRIT.includes(c)) ? 'right' : 'wrong'); });
+    const miss = CRIT.filter(c => !covered.includes(c));
+    okfb($('#m7fb'), pts >= 4 ? 'ok' : pts >= 3 ? 'part' : 'ko',
+      '<strong>' + fmt(pts) + ' / 5.</strong> Risques critiques couverts : ' + covered.length + '/3' + (miss.length ? ' (oubli : ' + miss.join(', ') + ')' : '') + '. Prévenir, détecter, réagir : ' + (types.size === 3 ? 'les trois sont présents' : 'il manque ' + ['P', 'D', 'R'].filter(t => !types.has(t)).join(', ')) + '. Dépense hors priorité : ' + (useless.length ? useless.map(m => m[1]).join(' ; ') : 'aucune') + '. Exemple de plan complet à 9 000 € : sensibilisation (H), comptes individuels et intégrité (D), chiffrement et cloisonnement (E), sauvegardes hors ligne testées (C).');
+    state.m7 = { sp, covered: covered.length };
+    setM(7, pts);
+  });
+})();
+
+(function m8() {
+  const host = $('#crise'); state.crise = {};
+  CRISE.forEach((s, si) => { const el = document.createElement('div'); el.className = 'cs'; el.id = 'cr' + si;
+    el.innerHTML = '<div class="tl">' + s.t + '</div><div class="cs-d" style="color:var(--ink)">' + s.q + '</div><div class="opts">' + s.o.map((o, i) => '<label class="opt"><input type="radio" name="cr' + si + '" value="' + i + '"><span>' + o[0] + '</span></label>').join('') + '</div><div class="fb" hidden></div>'; host.appendChild(el);
+    el.querySelectorAll('input').forEach(inp => inp.addEventListener('change', () => {
+      if (state.crise[si] !== undefined) return;
+      const i = +inp.value, ok = s.o[i][1] === 1; state.crise[si] = ok ? 1 : 0;
+      el.querySelectorAll('.opt').forEach((l, j) => { l.querySelector('input').disabled = true; if (j === i) l.classList.add(ok ? 'right' : 'wrong'); else if (s.o[j][1]) l.classList.add('missed'); });
+      el.classList.add(ok ? 'ok' : 'ko'); okfb(el.querySelector('.fb'), ok ? 'ok' : 'ko', '<strong>' + (ok ? 'Bonne décision. ' : 'Pas la bonne. ') + '</strong>' + s.why);
+      if (Object.keys(state.crise).length === CRISE.length) { const good = Object.values(state.crise).reduce((a, b) => a + b, 0); const sum = $('#crisesum'); sum.hidden = false;
+        sum.innerHTML = '<h3>Gestion de crise : ' + good + ' / 5</h3><p style="margin-top:6px">Une bonne gestion de crise isole d\'abord, organise ensuite, restaure proprement, respecte ses obligations légales et ne cède pas au chantage.</p>'; setM(8, good); }
+    }));
+  });
+})();
+
+
+/* ---------- M0 : terminal simulé ---------- */
+const JOURNAL = [
+ '2026-10-16 17:58:40 session  ouverture compte=superviseur-ecoute poste=PC-SALLE2-04',
+ '2026-10-16 18:00:02 sauvegarde  export_vendredi.csv sha256=' + HASH_A,
+ '2026-10-16 18:05:11 session  fermeture compte=superviseur-ecoute poste=PC-SALLE2-04',
+ '2026-10-18 21:50:03 session  ouverture compte=d.martin poste=PC-ADMIN-01',
+ '2026-10-18 22:14:31 UPDATE clients SET iban compte=superviseur-ecoute poste=PC-SALLE2-04 id=C-1003',
+ '2026-10-18 22:16:08 UPDATE clients SET iban compte=superviseur-ecoute poste=PC-SALLE2-04 id=C-1006',
+ '2026-10-18 23:02:44 session  fermeture compte=d.martin poste=PC-ADMIN-01',
+ '2026-10-19 08:05:12 export  export_lundi.csv genere pour=service-comptable',
+ '2026-10-19 08:12:47 mail  reception service@complus-facture.example pour=conseiller-17',
+].join('\n') + '\n';
+const AUTH = (() => {
+  const ev = []; let s = 11;
+  const rnd = () => (s = (s * 1103515245 + 12345) & 0x7fffffff);
+  [['203.0.113.45', 14], ['198.51.100.7', 3], ['192.0.2.19', 2]].forEach(([ip, n], k) => { for (let i = 0; i < n; i++) ev.push('Failed password for ' + (i % 3 ? 'admin' : 'root') + ' from ' + ip + ' port ' + (40000 + k * 1000 + i * 37) + ' ssh2'); });
+  for (let i = 0; i < 6; i++) ev.push('Accepted password for superviseur from 10.0.2.' + (10 + i) + ' port ' + (52000 + i * 13) + ' ssh2');
+  const t = ev.map(e => [rnd() % 86400, e]).sort((a, b) => a[0] - b[0]);
+  const p2 = n => String(n).padStart(2, '0');
+  return t.map(([sec, e], i) => 'Oct 18 ' + p2(Math.floor(sec / 3600)) + ':' + p2(Math.floor(sec % 3600 / 60)) + ':' + p2(sec % 60) + ' srv-cc01 sshd[' + (2100 + i * 7) + ']: ' + e).join('\n') + '\n';
+})();
+const FILES = {
+  'README.txt': 'Poste de supervision CentreCall (simulateur, lecture seule).\nDossier de preuves : exports clients, journal applicatif, journal d\'authentification SSH.\nTapez help pour la liste des commandes.\n',
+  'export_vendredi.csv': CSV_A, 'export_lundi.csv': CSV_B, 'journal.log': JOURNAL, 'auth.log': AUTH
+};
+(function terminal() {
+  const out = $('#tout'), inp = $('#tcmd'); const hist = []; let hi = 0;
+  const done = {};
+  const lines = s => { const a = s.split('\n'); if (a[a.length - 1] === '') a.pop(); return a; };
+  const nl = a => a.length ? a.join('\n') + '\n' : '';
+  const print = (txt, cls) => { const d = document.createElement('div'); if (cls) d.className = cls; d.textContent = txt; out.appendChild(d); out.scrollTop = out.scrollHeight; };
+  function tokenize(s) { const o = []; let cur = '', q = null, has = false; for (const ch of s) { if (q) { if (ch === q) q = null; else cur += ch; } else if (ch === '"' || ch === "'") { q = ch; has = true; } else if (/\s/.test(ch)) { if (cur !== '' || has) { o.push(cur); cur = ''; has = false; } } else cur += ch; } if (cur !== '' || has) o.push(cur); return o; }
+  function splitPipes(s) { const o = []; let cur = '', q = null; for (const ch of s) { if (q) { cur += ch; if (ch === q) q = null; } else if (ch === '"' || ch === "'") { q = ch; cur += ch; } else if (ch === '|') { o.push(cur); cur = ''; } else cur += ch; } o.push(cur); return o; }
+  const hasRedirect = s => { let q = null; for (const ch of s) { if (q) { if (ch === q) q = null; } else if (ch === '"' || ch === "'") q = ch; else if (ch === '>' || ch === '<') return true; } return false; };
+  const E = m => ({ err: m });
+  function readArgs(args, stdin, cmd) { const files = args.filter(a => !a.startsWith('-')); if (!files.length) return stdin == null ? E(cmd + ' : aucun fichier (utilisez un fichier ou un tube)') : { text: stdin };
+    let t = ''; for (const f of files) { if (!(f in FILES)) return E(cmd + ' : ' + f + ' : Aucun fichier ou dossier de ce nom'); t += FILES[f]; } return { text: t }; }
+  const cmds = {
+    help: () => ({ out: 'Commandes : ls [-l], cat, head [-n N], tail [-n N], wc [-l|-w|-c], grep [-c -i -v -n] motif [fichier],\n  sort [-r|-n], uniq [-c], cut -d X -f N, awk \'{print $N}\', sha256sum [fichier], diff A B,\n  echo [-n], pwscore MOT_DE_PASSE, whoami, pwd, history, clear.\nTubes autorisés : grep superviseur journal.log | wc -l\nTab complète les noms de fichiers, flèches haut et bas : historique.\n' }),
+    ls: a => a.includes('-l') ? { out: Object.keys(FILES).map(f => '-rw-r--r-- 1 analyste analyste ' + String(FILES[f].length).padStart(6) + ' ' + f).join('\n') + '\n' } : { out: Object.keys(FILES).join('  ') + '\n' },
+    pwd: () => ({ out: '/home/analyste\n' }), whoami: () => ({ out: 'analyste\n' }),
+    echo: a => { const n = a[0] === '-n'; const t = (n ? a.slice(1) : a).join(' '); return { out: n ? t : t + '\n' }; },
+    cat: (a, s) => { const r = readArgs(a, s, 'cat'); return r.err ? r : { out: r.text }; },
+    head: (a, s) => { let n = 10; const rest = []; for (let i = 0; i < a.length; i++) { if (a[i] === '-n') n = +a[++i] || 10; else if (/^-\d+$/.test(a[i])) n = -a[i]; else rest.push(a[i]); } const r = readArgs(rest, s, 'head'); return r.err ? r : { out: nl(lines(r.text).slice(0, n)) }; },
+    tail: (a, s) => { let n = 10; const rest = []; for (let i = 0; i < a.length; i++) { if (a[i] === '-n') n = +a[++i] || 10; else if (/^-\d+$/.test(a[i])) n = -a[i]; else rest.push(a[i]); } const r = readArgs(rest, s, 'tail'); return r.err ? r : { out: nl(lines(r.text).slice(-n)) }; },
+    wc: (a, s) => { const r = readArgs(a, s, 'wc'); if (r.err) return r; const L = lines(r.text).length, Wd = r.text.split(/\s+/).filter(Boolean).length, C = r.text.length;
+      return { out: (a.includes('-l') ? L : a.includes('-w') ? Wd : a.includes('-c') ? C : L + ' ' + Wd + ' ' + C) + '\n' }; },
+    grep: (a, s) => { const fl = a.filter(x => /^-[a-zA-Z]+$/.test(x)).join(''); const rest = a.filter(x => !/^-[a-zA-Z]+$/.test(x)); if (!rest.length) return E('grep : motif manquant');
+      let re; try { re = new RegExp(rest[0], fl.includes('i') ? 'i' : ''); } catch (e) { return E('grep : motif invalide'); }
+      const r = readArgs(rest.slice(1), s, 'grep'); if (r.err) return r; let L = lines(r.text).map((t, i) => [i + 1, t]).filter(([i, t]) => re.test(t) !== fl.includes('v'));
+      if (fl.includes('c')) return { out: L.length + '\n' }; return { out: nl(L.map(([i, t]) => fl.includes('n') ? i + ':' + t : t)) }; },
+    sort: (a, s) => { const r = readArgs(a, s, 'sort'); if (r.err) return r; let L = lines(r.text); L = a.includes('-n') ? L.sort((x, y) => parseFloat(x) - parseFloat(y)) : L.sort((x, y) => x < y ? -1 : x > y ? 1 : 0); if (a.includes('-r')) L.reverse(); return { out: nl(L) }; },
+    uniq: (a, s) => { const r = readArgs(a, s, 'uniq'); if (r.err) return r; const o = []; lines(r.text).forEach(l => { const last = o[o.length - 1]; if (last && last[1] === l) last[0]++; else o.push([1, l]); }); return { out: nl(o.map(([n, l]) => a.includes('-c') ? String(n).padStart(7) + ' ' + l : l)) }; },
+    cut: (a, s) => { let d = '\t', f = 1; const rest = []; for (let i = 0; i < a.length; i++) { if (a[i] === '-d') d = a[++i]; else if (a[i].startsWith('-d')) d = a[i].slice(2); else if (a[i] === '-f') f = +a[++i]; else if (a[i].startsWith('-f')) f = +a[i].slice(2); else rest.push(a[i]); }
+      const r = readArgs(rest, s, 'cut'); return r.err ? r : { out: nl(lines(r.text).map(l => l.split(d)[f - 1] ?? '')) }; },
+    awk: (a, s) => { let sep = /\s+/; const rest = []; for (let i = 0; i < a.length; i++) { if (a[i] === '-F') sep = a[++i]; else if (a[i].startsWith('-F')) sep = a[i].slice(2); else rest.push(a[i]); }
+      const prog = rest[0] || ''; const m = prog.match(/^\{\s*print\s*((?:\$\d+\s*,?\s*)*)\}$/); if (!m) return E('awk : seul « {print $N} » est géré dans ce simulateur');
+      const idx = (m[1].match(/\d+/g) || ['0']).map(Number); const r = readArgs(rest.slice(1), s, 'awk'); if (r.err) return r;
+      return { out: nl(lines(r.text).map(l => { const parts = typeof sep === 'string' ? l.split(sep) : l.trim().split(sep); return idx.map(k => k === 0 ? l : parts[k - 1] ?? '').join(' '); })) }; },
+    sha256sum: (a, s) => { const files = a.filter(x => !x.startsWith('-')); if (!files.length) return s == null ? E('sha256sum : aucun fichier') : { out: SHA(s) + '  -\n' };
+      let o = ''; for (const f of files) { if (!(f in FILES)) return E('sha256sum : ' + f + ' : Aucun fichier ou dossier de ce nom'); o += SHA(FILES[f]) + '  ' + f + '\n'; } return { out: o }; },
+    diff: a => { const f = a.filter(x => !x.startsWith('-')); if (f.length !== 2) return E('diff : deux fichiers attendus'); for (const x of f) if (!(x in FILES)) return E('diff : ' + x + ' : Aucun fichier ou dossier de ce nom');
+      const A = lines(FILES[f[0]]), B = lines(FILES[f[1]]); let o = ''; const n = Math.max(A.length, B.length);
+      for (let i = 0; i < n; i++) if (A[i] !== B[i]) o += (i + 1) + 'c' + (i + 1) + '\n< ' + (A[i] ?? '') + '\n---\n> ' + (B[i] ?? '') + '\n'; return { out: o }; },
+    pwscore: a => { const pw = a.join(' '); const e = estimate(pw); if (!e) return E('pwscore : indiquez un mot de passe fictif'); return { out: 'longueur ' + e.len + ' · ' + e.kind + '\nentropie estimée : ' + Math.round(e.bits) + ' bits\nhash rapide : ' + fmtTime(e.fast) + ' · hash lent : ' + fmtTime(e.slow) + '\n' }; },
+  };
+  function runLine(line) {
+    if (hasRedirect(line)) return E('Simulateur en lecture seule : redirections interdites.');
+    let data = null;
+    for (const seg of splitPipes(line)) { const t = tokenize(seg); if (!t.length) return E('erreur de syntaxe');
+      const f = cmds[t[0]]; if (!f) return E('bash : ' + t[0] + ' : commande introuvable. Tapez help.');
+      const r = f(t.slice(1), data); if (r.err) return r; data = r.out; }
+    return { out: data };
+  }
+  function check(line) {
+    const mark = (id) => { if (done[id]) return; done[id] = true; const li = $('#' + id); li.classList.add('done'); li.querySelector('.ck').textContent = '[x]'; state.term = state.term || {}; state.term[id] = 1; m0score(); };
+    if (/^\s*ls\b/.test(line)) mark('t1');
+    if (/\bsha256sum\s+(?:-\S+\s+)*export_vendredi\.csv\b/.test(line) && !line.includes('|')) mark('t2');
+    if (/\bdiff\b/.test(line) && /export_vendredi\.csv/.test(line) && /export_lundi\.csv/.test(line)) mark('t3');
+    if (/\bgrep\b/.test(line) && /superviseur-ecoute/.test(line) && /journal\.log/.test(line)) mark('t4');
+  }
+  function m0score() { const n = Object.keys(state.term || {}).length; state.score.m0 = n; refresh(); }
+  window.__m0mark = id => { done[id] = true; const li = $('#' + id); li.classList.add('done'); li.querySelector('.ck').textContent = '[x]'; state.term = state.term || {}; state.term[id] = 1; m0score(); };
+  window.__m0done = id => !!done[id];
+  print('Poste de supervision CentreCall. Tapez help pour commencer.\nDossier : README.txt  export_vendredi.csv  export_lundi.csv  journal.log  auth.log\n');
+  function exec(line) {
+    print($('#tp').textContent + ' ' + line, 'cmd'); if (!line.trim()) return;
+    hist.push(line); hi = hist.length;
+    if (line.trim() === 'clear') { out.textContent = ''; return; }
+    if (line.trim() === 'history') { print(hist.map((l, i) => String(i + 1).padStart(4) + '  ' + l).join('\n')); return; }
+    const r = runLine(line); if (r.err) print(r.err, 'err'); else { if (r.out) print(r.out.replace(/\n$/, '')); check(line); }
+  }
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { const v = inp.value; inp.value = ''; exec(v); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); if (hi > 0) inp.value = hist[--hi]; }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); if (hi < hist.length - 1) inp.value = hist[++hi]; else { hi = hist.length; inp.value = ''; } }
+    else if (e.key === 'l' && e.ctrlKey) { e.preventDefault(); out.textContent = ''; }
+    else if (e.key === 'Tab') { e.preventDefault(); const parts = inp.value.split(/\s+/); const last = parts[parts.length - 1]; const pool = parts.length === 1 ? Object.keys(cmds) : Object.keys(FILES); const m = pool.filter(x => x.startsWith(last)); if (m.length === 1) { parts[parts.length - 1] = m[0]; inp.value = parts.join(' ') + ' '; } else if (m.length > 1) print(m.join('  ')); }
+  });
+  $('#term').addEventListener('click', () => inp.focus());
+})();
+$('#t5go').addEventListener('click', () => {
+  const ip = $('#t5ip').value.trim(), n = $('#t5n').value.trim(); const fb = $('#t5fb'); fb.hidden = false;
+  if (ip === '203.0.113.45' && n === '14') { fb.className = 'fb ok'; fb.innerHTML = '<strong>Correct.</strong> 203.0.113.45 totalise 14 échecs : tentatives répétées sur root et admin, signature d\'une attaque par force brute. À bloquer et à signaler.'; if (!window.__m0done('t5')) window.__m0mark('t5'); }
+  else { fb.className = 'fb ko'; fb.innerHTML = '<strong>Pas encore.</strong> Piste : <code>grep Failed auth.log | awk \'{print $11}\' | sort | uniq -c | sort -n</code>. Vérifiez la colonne qui contient l\'adresse.'; }
+});
+$('#m0go').addEventListener('click', () => { state.done.m0 = true; $('#m0go').disabled = true; $('#m0msg').textContent = 'Mission terminée : ' + fmt(mscore(0)) + ' / 5.'; refresh(); });
+window.addEventListener('beforeunload', e => { if (Object.keys(state.score).length) { e.preventDefault(); e.returnValue = ''; } });
+
+/* ---------- Bilan ---------- */
+$('#mkreport').addEventListener('click', () => {
+  const tot = refresh(); const lines = [];
+  lines.push('CELLULE DE CRISE CENTRECALL · U.7 séance 3 · TP de 4 h');
+  lines.push('Binôme : ' + ($('#names').value || '(non renseigné)'));
+  lines.push('Score : ' + fmt(tot) + ' / 45 (' + [0, 1, 2, 3, 4, 5, 6, 7, 8].map(m => 'M' + m + ' ' + fmt(mscore(m))).join(', ') + ' ; 5 points chacune)');
+  lines.push('Empreinte vendredi : ' + HASH_A);
+  lines.push('Empreinte lundi    : ' + HASH_B);
+  lines.push('Lignes modifiées : C-1003, C-1006 (même IBAN de destination)');
+  lines.push('Budget engagé (M7) : ' + (state.m7 ? state.m7.sp + ' €' : 'non renseigné'));
+  lines.push('');
+  lines.push('NOTE DE SYNTHÈSE : ' + ($('#synth').value || '(vide)'));
+  lines.push('');
+  lines.push('Incident qui m’a le plus appris : ' + ($('#learn').value || '(vide)'));
+  lines.push('Mesure à mettre en place demain : ' + ($('#measure').value || '(vide)'));
+  const nm = $('#names').value || '(non renseigné)';
+  const sc = m => String(Math.round(mscore(m) * 10) / 10);
+  const when = new Date().toLocaleString('fr-FR');
+  const canon = nm + '|' + [0, 1, 2, 3, 4, 5, 6, 7, 8].map(sc).join(',') + '|' + when;
+  lines.splice(3, 0, 'Note sur 20 : ' + fmt(Math.round(tot / 45 * 20 * 10) / 10), 'Date : ' + when);
+  lines.push('');
+  lines.push('Code de contrôle : ' + SHA('CC2026-U7S3-' + canon).slice(0, 12).toUpperCase());
+  $('#report').value = lines.join('\n');
+});
+$('#copyreport').addEventListener('click', async () => {
+  const t = $('#report'); const c = $('#copied');
+  if (!t.value) $('#mkreport').click();
+  try { await navigator.clipboard.writeText(t.value); c.textContent = 'Copié.'; } catch (e) { t.select(); c.textContent = 'Texte sélectionné, faites Ctrl+C.'; }
+  setTimeout(() => c.textContent = '', 2500);
+});
+refresh();
+</script>
+</body>
+</html>
