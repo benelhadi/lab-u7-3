@@ -216,7 +216,7 @@ textarea{resize:vertical;min-height:84px}
   </div></div>
 
   <section class="hero">
-    <span class="eyebrow">BTS SIO 1 · U.7 Cybersécurité · séance 3 · TP de 4 heures · BEN EL HADI Hamza</span>
+    <span class="eyebrow">BTS SIO 1 · U.7 Cybersécurité · séance 3 · TP de 4 heures</span>
     <h1>Cellule de crise CentreCall</h1>
     <p>Vous êtes l'équipe sécurité de CentreCall, le centre d'appels du dossier de cours. Neuf missions, du terminal à la gestion de crise, sur les incidents du journal. Chaque mission se traite dans le navigateur, sans rien installer.</p>
     <div class="facts">
@@ -371,7 +371,7 @@ textarea{resize:vertical;min-height:84px}
       <label class="f">Note de synthèse à la direction (5 lignes : ce qui s'est passé, les trois risques majeurs, le plan retenu, ce qu'il reste à faire)<textarea id="synth" rows="5"></textarea></label>
       <label class="f">Une phrase : l'incident qui vous a le plus appris, et pourquoi<textarea id="learn"></textarea></label>
       <label class="f">Une mesure que vous mettriez en place demain chez CentreCall<textarea id="measure"></textarea></label>
-      <div class="qa"><button class="btn" id="mkreport" type="button">Générer le compte rendu</button><button class="btn ghost" id="copyreport" type="button">Copier</button><span class="hint" id="copied"></span></div>
+      <div class="qa"><button class="btn" id="mkreport" type="button">Générer le compte rendu</button><button class="btn ghost" id="copyreport" type="button">Copier</button><button class="btn" id="sendreport" type="button" hidden>Envoyer au formateur</button><span class="hint" id="copied"></span></div>
       <label class="f">À coller dans le dépôt Moodle<textarea id="report" class="report" readonly></textarea></label>
     </div>
     <p class="foot">Cas fictif : CentreCall, ComPlus et tous les noms, comptes et IBAN de cette page sont inventés. Les domaines en <code>.example</code> ne peuvent pas exister sur Internet.</p>
@@ -904,6 +904,24 @@ $('#copyreport').addEventListener('click', async () => {
   try { await navigator.clipboard.writeText(t.value); c.textContent = 'Copié.'; } catch (e) { t.select(); c.textContent = 'Texte sélectionné, faites Ctrl+C.'; }
   setTimeout(() => c.textContent = '', 2500);
 });
+
+/* ---------- Envoi automatique au formateur (facultatif) ---------- */
+// Collez ici l'URL de déploiement du script Google Apps Script (voir README). Vide : l'envoi est masqué, le dépôt Moodle reste possible.
+const ENDPOINT = "";
+if (ENDPOINT) {
+  $('#sendreport').hidden = false;
+  $('#sendreport').addEventListener('click', async () => {
+    const c = $('#copied'), b = $('#sendreport');
+    if (!($('#names').value || '').trim()) { c.textContent = 'Renseignez les noms du binôme avant d’envoyer.'; return; }
+    $('#mkreport').click();
+    b.disabled = true; c.textContent = 'Envoi en cours…';
+    try {
+      await fetch(ENDPOINT, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ report: $('#report').value }) });
+      c.textContent = 'Envoyé. Gardez aussi une copie du compte rendu (bouton Copier).';
+    } catch (e) { c.textContent = 'Échec de l’envoi : copiez le compte rendu et déposez-le sur Moodle.'; }
+    setTimeout(() => { b.disabled = false; }, 4000);
+  });
+}
 refresh();
 </script>
 </body>
