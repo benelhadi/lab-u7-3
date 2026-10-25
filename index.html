@@ -907,7 +907,7 @@ $('#copyreport').addEventListener('click', async () => {
 
 /* ---------- Envoi automatique au formateur (facultatif) ---------- */
 // Collez ici l'URL de déploiement du script Google Apps Script (voir README). Vide : l'envoi est masqué, le dépôt Moodle reste possible.
-const ENDPOINT = "";
+const ENDPOINT = "https://script.google.com/macros/s/AKfycbzCGGYsLGwLeyDJrS4mhWVNfF4ZKbNl57jeyi9j3IsgzOASxIB8T-tanKJROu8VTRdhjg/exec";
 if (ENDPOINT) {
   $('#sendreport').hidden = false;
   $('#sendreport').addEventListener('click', async () => {
